@@ -1,32 +1,45 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import * as maplibregl from 'maplibre-gl'
-import { Search, RotateCcw, ShieldAlert, Activity, Filter, ChevronDown, ChevronUp } from 'lucide-react'
+import { RotateCcw, ShieldAlert, Activity, SlidersHorizontal, ChevronDown, ChevronUp, MapPin, SearchX } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { mines } from '../data/mines'
-import { cn } from '../lib/utils'
+import { cn, complianceTone, toneFill, toneText } from '../lib/utils'
 import DemoHighlight from '../components/shared/DemoHighlight'
+import { StatusBadge } from '../components/shared/StatusBadge'
+import { SearchInput, Select } from '../components/ui/Field'
+import { Button } from '../components/ui/Button'
+import { EmptyState } from '../components/ui/States'
 import { useIsMobile } from '../lib/useIsMobile'
 
 const riskSeverity = { HIGH: 3, MEDIUM: 2, LOW: 1 }
+const riskVar = { HIGH: 'var(--color-danger-solid)', MEDIUM: 'var(--color-warning-solid)', LOW: 'var(--color-success-solid)' } as const
+const riskLabel = { HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' } as const
+
+type MineItem = (typeof mines)[number]
+
+// Prototype estimate carried over from the original map view
+const estimatedOpenCapa = (mine: MineItem) => (mine.riskLevel === 'HIGH' ? 7 : mine.riskLevel === 'MEDIUM' ? 3 : 0)
 
 export default function GISRiskMap() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
+  const markers = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLDivElement }>>(new Map())
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  
+
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState('ALL')
   const [subsidiaryFilter, setSubsidiaryFilter] = useState('ALL')
   const [typeFilter, setTypeFilter] = useState('ALL')
   const [showFilters, setShowFilters] = useState(false)
-  const [showMineList, setShowMineList] = useState(!isMobile)
-  
-  const subsidiaries = useMemo(() => Array.from(new Set(mines.map(m => m.subsidiaryCode))), [])
-  const types = useMemo(() => Array.from(new Set(mines.map(m => m.type))), [])
+  const [showMineList, setShowMineList] = useState(true)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const subsidiaries = useMemo(() => Array.from(new Set(mines.map((m) => m.subsidiaryCode))), [])
+  const types = useMemo(() => Array.from(new Set(mines.map((m) => m.type))), [])
 
   const filteredMines = useMemo(() => {
-    return mines.filter(m => {
+    return mines.filter((m) => {
       const matchSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.code.toLowerCase().includes(search.toLowerCase())
       const matchRisk = riskFilter === 'ALL' || m.riskLevel === riskFilter
       const matchSub = subsidiaryFilter === 'ALL' || m.subsidiaryCode === subsidiaryFilter
@@ -39,12 +52,29 @@ export default function GISRiskMap() {
     return [...filteredMines].sort((a, b) => riskSeverity[b.riskLevel] - riskSeverity[a.riskLevel])
   }, [filteredMines])
 
+  const riskCounts = useMemo(
+    () => ({
+      HIGH: filteredMines.filter((m) => m.riskLevel === 'HIGH').length,
+      MEDIUM: filteredMines.filter((m) => m.riskLevel === 'MEDIUM').length,
+      LOW: filteredMines.filter((m) => m.riskLevel === 'LOW').length,
+    }),
+    [filteredMines]
+  )
+
+  const activeFilterCount = [riskFilter, subsidiaryFilter, typeFilter].filter((f) => f !== 'ALL').length
+
   const resetView = () => {
     map.current?.flyTo({ center: [82.5, 22.5], zoom: 5 })
     setSearch('')
     setRiskFilter('ALL')
     setSubsidiaryFilter('ALL')
     setTypeFilter('ALL')
+    setSelectedId(null)
+  }
+
+  const focusMine = (mine: MineItem) => {
+    setSelectedId(mine.id)
+    map.current?.flyTo({ center: mine.coordinates, zoom: 9 })
   }
 
   // Initialize Map
@@ -56,14 +86,12 @@ export default function GISRiskMap() {
       style: {
         version: 8,
         sources: {
-          'osm': {
+          osm: {
             type: 'raster',
-            tiles: [
-              'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-            ],
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
             tileSize: 256,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          },
         },
         layers: [
           {
@@ -71,319 +99,339 @@ export default function GISRiskMap() {
             type: 'raster',
             source: 'osm',
             minzoom: 0,
-            maxzoom: 19
-          }
-        ]
+            maxzoom: 19,
+          },
+        ],
       },
       center: [82.5, 22.5],
-      zoom: 5
+      zoom: 5,
     })
 
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right')
+    map.current.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
 
+    const markerStore = markers.current
     return () => {
+      markerStore.clear()
       map.current?.remove()
       map.current = null
     }
   }, [])
 
+  // Keep the map canvas sized to its container when the layout changes
+  useEffect(() => {
+    const t = window.setTimeout(() => map.current?.resize(), 250)
+    return () => window.clearTimeout(t)
+  }, [isMobile, showMineList])
+
   // Update Markers
   useEffect(() => {
     if (!map.current) return
 
-    const existingMarkers = document.querySelectorAll('.mine-marker')
-    existingMarkers.forEach(el => el.remove())
+    markers.current.forEach(({ marker }) => marker.remove())
+    markers.current.clear()
 
-    filteredMines.forEach(mine => {
-      const color = mine.riskLevel === 'HIGH' ? '#C1292E' : mine.riskLevel === 'MEDIUM' ? '#F0A202' : '#2E7D4F'
-      const openCapaCount = mine.riskLevel === 'HIGH' ? 7 : mine.riskLevel === 'MEDIUM' ? 3 : 0
-      
+    filteredMines.forEach((mine) => {
+      const color = riskVar[mine.riskLevel]
+      const openCapaCount = estimatedOpenCapa(mine)
+
       const el = document.createElement('div')
       el.className = 'mine-marker'
-      el.style.width = '16px'
-      el.style.height = '16px'
-      el.style.borderRadius = '50%'
-      el.style.backgroundColor = color
-      el.style.border = '2px solid rgba(255,255,255,0.3)'
-      el.style.cursor = 'pointer'
-      el.style.boxShadow = `0 0 12px ${color}80`
-
-      const popupNode = document.createElement('div')
-      popupNode.innerHTML = `
-        <div style="min-width: 200px; font-family: 'Inter', sans-serif;">
-          <div style="font-weight: 700; font-size: 14px; color: #EDE6DA; font-family: 'IBM Plex Mono', monospace; margin-bottom: 12px;">
-            Mine:<br/><span style="color: ${color}">${mine.code}</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
-              <span style="color: #8E99A4;">Risk:</span>
-              <span style="color: ${color}; font-weight: 700;">${mine.riskLevel}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
-              <span style="color: #8E99A4;">Compliance:</span>
-              <span style="color: #EDE6DA; font-weight: 600; font-family: 'IBM Plex Mono', monospace;">${mine.complianceScore}%</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #8E99A4;">Open CAPA:</span>
-              <span style="color: #EDE6DA; font-weight: 600; font-family: 'IBM Plex Mono', monospace;">${openCapaCount}</span>
-            </div>
-          </div>
-          <button id="view-btn-${mine.id}" style="width: 100%; margin-top: 16px; padding: 8px 0; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
-            View Mine
-          </button>
-        </div>
-      `
-      
-      const popup = new maplibregl.Popup({ offset: 12, closeButton: true, maxWidth: '240px' })
-        .setDOMContent(popupNode)
-
-      popup.on('open', () => {
-        document.getElementById(`view-btn-${mine.id}`)?.addEventListener('click', () => {
-          navigate(`/mines/${mine.id}`)
-        })
+      el.setAttribute('role', 'button')
+      el.setAttribute('aria-label', `${mine.code} — ${riskLabel[mine.riskLevel]} risk`)
+      Object.assign(el.style, {
+        width: '16px',
+        height: '16px',
+        borderRadius: '50%',
+        backgroundColor: color,
+        border: '2px solid var(--color-surface)',
+        cursor: 'pointer',
+        boxShadow: `0 0 0 4px color-mix(in oklab, ${color} 28%, transparent), 0 2px 6px rgb(0 0 0 / 0.35)`,
+        transition: 'width 150ms ease, height 150ms ease',
       })
 
-      new maplibregl.Marker({ element: el })
-        .setLngLat(mine.coordinates)
-        .setPopup(popup)
-        .addTo(map.current!)
+      // Popup content — themed via .kd-map-popup classes in index.css
+      const popupNode = document.createElement('div')
+      popupNode.className = 'kd-map-popup'
+      const code = document.createElement('div')
+      code.className = 'kd-map-popup__code'
+      code.textContent = mine.code
+      const name = document.createElement('div')
+      name.className = 'kd-map-popup__name'
+      name.textContent = mine.name
+      const rows = document.createElement('div')
+      rows.className = 'kd-map-popup__rows'
+      const addRow = (label: string, value: string, dot?: string) => {
+        const row = document.createElement('div')
+        row.className = 'kd-map-popup__row'
+        const l = document.createElement('span')
+        l.textContent = label
+        const v = document.createElement('span')
+        if (dot) {
+          v.className = 'kd-map-popup__risk'
+          const d = document.createElement('i')
+          d.className = 'kd-map-popup__dot'
+          d.style.backgroundColor = dot
+          v.append(d, document.createTextNode(value))
+        } else {
+          v.textContent = value
+        }
+        row.append(l, v)
+        rows.append(row)
+      }
+      addRow('Risk', mine.riskLevel, color)
+      addRow('Compliance', `${mine.complianceScore}%`)
+      addRow('Open CAPA', String(openCapaCount))
+      const btn = document.createElement('button')
+      btn.className = 'kd-map-popup__btn'
+      btn.type = 'button'
+      btn.textContent = 'View mine'
+      btn.addEventListener('click', () => navigate(`/mines/${mine.id}`))
+      popupNode.append(code, name, rows, btn)
+
+      const popup = new maplibregl.Popup({ offset: 14, closeButton: true, maxWidth: '260px' }).setDOMContent(popupNode)
+      popup.on('open', () => setSelectedId(mine.id))
+
+      const marker = new maplibregl.Marker({ element: el }).setLngLat(mine.coordinates).setPopup(popup).addTo(map.current!)
+      markers.current.set(mine.id, { marker, el })
     })
   }, [filteredMines, navigate])
 
-  return (
-    <div className={cn(
-      "overflow-hidden bg-mine-black",
-      isMobile ? "flex flex-col h-[calc(100vh-140px)]" : "flex h-[calc(100vh-64px)]"
-    )}>
-      {/* Main Map Area */}
-      <div className={cn(
-        "flex flex-col relative",
-        isMobile ? "flex-shrink-0" : "flex-1 border-r border-border"
+  // Reflect selected mine on its marker
+  useEffect(() => {
+    markers.current.forEach(({ el }, id) => {
+      const selected = id === selectedId
+      el.style.width = selected ? '22px' : '16px'
+      el.style.height = selected ? '22px' : '16px'
+      el.style.zIndex = selected ? '2' : ''
+    })
+  }, [selectedId, filteredMines])
+
+  const filterControls = (
+    <>
+      <Select aria-label="Risk level" value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className={cn(!isMobile && 'w-[128px]')}>
+        <option value="ALL">All Risks</option>
+        <option value="HIGH">High Risk</option>
+        <option value="MEDIUM">Medium Risk</option>
+        <option value="LOW">Low Risk</option>
+      </Select>
+      <Select aria-label="Subsidiary" value={subsidiaryFilter} onChange={(e) => setSubsidiaryFilter(e.target.value)} className={cn(!isMobile && 'w-[150px]')}>
+        <option value="ALL">All Subsidiaries</option>
+        {subsidiaries.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </Select>
+      <Select aria-label="Mine type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={cn(!isMobile && 'w-[140px]')}>
+        <option value="ALL">All Types</option>
+        {types.map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </Select>
+    </>
+  )
+
+  const legend = (
+    <div
+      className={cn(
+        'absolute z-10 rounded-lg border border-border bg-surface-raised/95 shadow-pop backdrop-blur',
+        isMobile ? 'bottom-2 left-2 px-2.5 py-2' : 'bottom-6 left-4 px-3.5 py-3'
       )}
-      style={isMobile ? { height: '50vh', minHeight: '280px' } : undefined}
-      >
-        {/* Controls Overlay Bar */}
+    >
+      {!isMobile && <div className="kd-overline mb-2">Risk severity</div>}
+      <ul className={cn('flex text-[12px]', isMobile ? 'gap-3' : 'flex-col gap-1.5')}>
+        {(['HIGH', 'MEDIUM', 'LOW'] as const).map((level) => (
+          <li key={level} className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full ring-2 ring-surface-raised" style={{ backgroundColor: riskVar[level] }} aria-hidden="true" />
+            <span className="text-text-secondary">{riskLabel[level]}</span>
+            {!isMobile && <span className="ml-auto pl-4 font-semibold text-text-primary kd-num">{riskCounts[level]}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+
+  const mineList = (
+    <div className={cn('space-y-2', isMobile ? 'p-3' : 'p-3')}>
+      {sortedMines.map((mine, idx) => (
+        <MineCard key={mine.id} mine={mine} rank={idx + 1} selected={selectedId === mine.id} onSelect={() => focusMine(mine)} onOpen={() => navigate(`/mines/${mine.id}`)} />
+      ))}
+      {sortedMines.length === 0 && <EmptyState compact icon={SearchX} title="No mines match your filters." description="Adjust or reset the filters to see monitored sites." actionLabel="Reset view" onAction={resetView} />}
+    </div>
+  )
+
+  return (
+    <div className={cn('flex h-full overflow-hidden bg-canvas', isMobile ? 'flex-col' : 'flex-row')}>
+      {/* Map Area */}
+      <div className={cn('relative flex flex-col', isMobile ? 'kd-map-compact h-[46dvh] min-h-[280px] shrink-0' : 'min-w-0 flex-1')}>
+        {/* Filter toolbar */}
         {isMobile ? (
-          /* Mobile: compact filter bar */
-          <div className="absolute top-2 left-2 right-2 z-10 flex gap-2 items-center">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input 
-                type="text" 
-                placeholder="Search mines..." 
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-surface-raised/95 backdrop-blur border border-border rounded text-[13px] text-text-primary focus:outline-none focus:border-amber/50"
-              />
-            </div>
-            <button 
+          <div className="absolute left-2 right-2 top-2 z-10 flex items-center gap-2">
+            <SearchInput value={search} onValueChange={setSearch} placeholder="Search mines..." wrapperClassName="flex-1" className="bg-surface-raised/95 shadow-pop backdrop-blur" />
+            <Button
+              variant="secondary"
+              size="icon"
               onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                "p-2 border rounded transition-colors flex-shrink-0",
-                showFilters ? "bg-amber/10 border-amber/30 text-amber" : "bg-surface-raised/95 backdrop-blur border-border text-text-secondary"
-              )}
+              aria-label="Filters"
+              aria-expanded={showFilters}
+              className={cn('shrink-0 shadow-pop', showFilters && 'border-amber/50 text-amber')}
             >
-              <Filter className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={resetView}
-              className="p-2 bg-surface-raised/95 backdrop-blur border border-border rounded text-text-secondary flex-shrink-0"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+              <SlidersHorizontal />
+            </Button>
+            <Button variant="secondary" size="icon" onClick={resetView} aria-label="Reset view" className="shrink-0 shadow-pop">
+              <RotateCcw />
+            </Button>
           </div>
         ) : (
-          /* Desktop: full filter bar */
-          <div className="absolute top-4 left-4 right-4 z-10 flex gap-3 p-3 bg-surface-raised/95 backdrop-blur border border-border rounded-lg shadow-2xl items-center">
-            <div className="relative w-64">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input 
-                type="text" 
-                placeholder="Search mines..." 
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-mine-black border border-border rounded text-[13px] text-text-primary focus:outline-none focus:border-amber/50"
-              />
-            </div>
-            
-            <select 
-              value={riskFilter} 
-              onChange={e => setRiskFilter(e.target.value)}
-              className="px-3 py-2 bg-mine-black border border-border rounded text-[13px] text-text-primary focus:outline-none"
-            >
-              <option value="ALL">All Risks</option>
-              <option value="HIGH">High Risk</option>
-              <option value="MEDIUM">Medium Risk</option>
-              <option value="LOW">Low Risk</option>
-            </select>
-
-            <select 
-              value={subsidiaryFilter} 
-              onChange={e => setSubsidiaryFilter(e.target.value)}
-              className="px-3 py-2 bg-mine-black border border-border rounded text-[13px] text-text-primary focus:outline-none"
-            >
-              <option value="ALL">All Subsidiaries</option>
-              {subsidiaries.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-
-            <select 
-              value={typeFilter} 
-              onChange={e => setTypeFilter(e.target.value)}
-              className="px-3 py-2 bg-mine-black border border-border rounded text-[13px] text-text-primary focus:outline-none"
-            >
-              <option value="ALL">All Types</option>
-              {types.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            
+          <div className="absolute left-4 right-14 top-4 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-raised/95 p-2 shadow-pop backdrop-blur">
+            <SearchInput value={search} onValueChange={setSearch} placeholder="Search mines..." wrapperClassName="w-52" />
+            {filterControls}
             <div className="flex-1" />
-
-            <button 
-              onClick={resetView}
-              className="px-4 py-2 bg-surface hover:bg-slate transition-colors border border-border rounded text-[13px] text-text-secondary flex items-center gap-2 whitespace-nowrap flex-shrink-0"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset View
-            </button>
+            <Button variant="ghost" size="icon" onClick={resetView} aria-label="Reset view" title="Reset view">
+              <RotateCcw />
+            </Button>
           </div>
         )}
 
-        {/* Mobile filter dropdown */}
         {isMobile && showFilters && (
-          <div className="absolute top-14 left-2 right-2 z-10 bg-surface-raised/95 backdrop-blur border border-border rounded-lg p-3 shadow-2xl space-y-2">
-            <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-mine-black border border-border rounded text-[13px] text-text-primary focus:outline-none">
-              <option value="ALL">All Risks</option>
-              <option value="HIGH">High Risk</option>
-              <option value="MEDIUM">Medium Risk</option>
-              <option value="LOW">Low Risk</option>
-            </select>
-            <select value={subsidiaryFilter} onChange={e => setSubsidiaryFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-mine-black border border-border rounded text-[13px] text-text-primary focus:outline-none">
-              <option value="ALL">All Subsidiaries</option>
-              {subsidiaries.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-mine-black border border-border rounded text-[13px] text-text-primary focus:outline-none">
-              <option value="ALL">All Types</option>
-              {types.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+          <div className="absolute left-2 right-2 top-14 z-10 space-y-2 rounded-lg border border-border bg-surface-raised p-3 shadow-pop animate-pop-in">
+            {filterControls}
           </div>
         )}
 
         {/* Map Container */}
-        <div ref={mapContainer} className="flex-1" />
+        <div ref={mapContainer} className="flex-1" aria-label="Map of monitored mines" role="region" />
 
-        {/* Legend */}
-        <div className={cn(
-          "absolute z-10 bg-surface-raised/95 backdrop-blur border border-border rounded-lg shadow-xl",
-          isMobile ? "bottom-2 left-2 p-2" : "bottom-6 left-6 p-4"
-        )}>
-          <h4 className={cn("font-heading font-semibold text-text-muted mb-2", isMobile ? "text-[10px] mb-1.5" : "text-[12px] mb-3")}>RISK SEVERITY</h4>
-          <div className={cn("flex gap-3", isMobile ? "flex-row" : "flex-col gap-2")}>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#C1292E] shadow-[0_0_8px_rgba(193,41,46,0.5)] border border-white/20" />
-              <span className={cn("text-text-secondary", isMobile ? "text-[10px]" : "text-[12px]")}>High</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#F0A202] shadow-[0_0_8px_rgba(240,162,2,0.5)] border border-white/20" />
-              <span className={cn("text-text-secondary", isMobile ? "text-[10px]" : "text-[12px]")}>Medium</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#2E7D4F] shadow-[0_0_8px_rgba(46,125,79,0.5)] border border-white/20" />
-              <span className={cn("text-text-secondary", isMobile ? "text-[10px]" : "text-[12px]")}>Low</span>
-            </div>
-          </div>
-        </div>
+        {legend}
       </div>
 
-      {/* Right Side Panel (Desktop) / Bottom Section (Mobile) */}
+      {/* Ranked panel */}
       {isMobile ? (
-        <div className="flex-1 bg-surface-raised flex flex-col overflow-hidden border-t border-border">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border bg-surface">
           <button
+            type="button"
             onClick={() => setShowMineList(!showMineList)}
-            className="p-3 border-b border-border bg-mine-black/40 flex items-center justify-between flex-shrink-0"
+            aria-expanded={showMineList}
+            className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 text-left"
           >
             <div>
-              <h2 className="font-heading text-sm text-text-primary tracking-wide">RISK-RANKED MINES</h2>
-              <p className="text-[11px] text-text-muted mt-0.5">{sortedMines.length} mines</p>
+              <h2 className="text-[14px] font-semibold text-text-primary">Risk-ranked mines</h2>
+              <p className="mt-0.5 text-[12px] text-text-muted kd-num">
+                {sortedMines.length} mines · {riskCounts.HIGH} high · {riskCounts.MEDIUM} medium · {riskCounts.LOW} low
+              </p>
             </div>
-            {showMineList ? <ChevronDown className="w-4 h-4 text-text-muted" /> : <ChevronUp className="w-4 h-4 text-text-muted" />}
+            {showMineList ? <ChevronDown className="h-4 w-4 text-text-muted" /> : <ChevronUp className="h-4 w-4 text-text-muted" />}
           </button>
-          
-          {showMineList && (
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {sortedMines.map(mine => renderMineCard(mine, map))}
-              {sortedMines.length === 0 && (
-                <div className="p-6 text-center text-text-muted text-[13px]">No mines match your filters.</div>
-              )}
-            </div>
-          )}
+          {showMineList && <div className="flex-1 overflow-y-auto">{mineList}</div>}
         </div>
       ) : (
-        <div className="w-[380px] flex-shrink-0 bg-surface-raised flex flex-col">
-          <div className="p-5 border-b border-border bg-mine-black/40">
-            <h2 className="font-heading text-lg text-text-primary tracking-wide">RISK-RANKED MINES</h2>
-            <p className="text-[13px] text-text-muted mt-1">Monitored sites sorted by priority.</p>
+        <aside aria-label="Risk-ranked mines" className="flex w-[360px] shrink-0 flex-col border-l border-border bg-surface xl:w-[380px]">
+          <div className="shrink-0 border-b border-border px-4 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-[16px] font-semibold text-text-primary">Risk-ranked mines</h2>
+                <p className="mt-0.5 text-[12px] text-text-muted">Monitored sites sorted by priority.</p>
+              </div>
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-amber-soft px-2 py-0.5 text-[11px] font-semibold text-amber kd-num">
+                  {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            {/* Risk summary */}
+            <dl className="mt-3 grid grid-cols-3 gap-2">
+              {(['HIGH', 'MEDIUM', 'LOW'] as const).map((level) => (
+                <div key={level} className="rounded-md border border-border bg-inset px-3 py-2">
+                  <dt className="flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: riskVar[level] }} aria-hidden="true" />
+                    {riskLabel[level]}
+                  </dt>
+                  <dd className="mt-0.5 text-[18px] font-semibold leading-6 text-text-primary kd-num">{riskCounts[level]}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {sortedMines.map(mine => renderMineCard(mine, map))}
-            {sortedMines.length === 0 && (
-              <div className="p-8 text-center text-text-muted text-[13px]">No mines match your filters.</div>
-            )}
-          </div>
-        </div>
+          <div className="flex-1 overflow-y-auto">{mineList}</div>
+        </aside>
       )}
     </div>
   )
 }
 
-function renderMineCard(mine: typeof mines[0], map: React.RefObject<maplibregl.Map | null>) {
-  const riskColors = {
-    HIGH: 'text-red bg-red-dim border-red/20',
-    MEDIUM: 'text-amber bg-amber-dim border-amber/20',
-    LOW: 'text-green bg-green-dim border-green/20'
-  }
-  const badgeClass = riskColors[mine.riskLevel]
-  const openCapaCount = mine.riskLevel === 'HIGH' ? 7 : mine.riskLevel === 'MEDIUM' ? 3 : 0
+function MineCard({ mine, rank, selected, onSelect, onOpen }: { mine: MineItem; rank: number; selected: boolean; onSelect: () => void; onOpen: () => void }) {
+  const tone = complianceTone(mine.complianceScore)
+  const openCapaCount = estimatedOpenCapa(mine)
 
   const card = (
-    <div 
-      onClick={() => {
-        map.current?.flyTo({ center: mine.coordinates, zoom: 9 })
-      }}
-      className="p-3 sm:p-4 border border-border bg-mine-black rounded-lg cursor-pointer hover:border-border-light transition-all group"
+    <div
+      className={cn(
+        'group relative overflow-hidden rounded-lg border bg-surface transition-colors',
+        selected ? 'border-amber/60 bg-amber-soft/40' : 'border-border hover:border-border-strong hover:bg-surface-2'
+      )}
     >
-      <div className="flex justify-between items-start mb-2 sm:mb-3">
-        <div>
-          <h3 className="font-mono text-[13px] sm:text-[14px] text-amber font-semibold">{mine.code}</h3>
-          <p className="text-[11px] sm:text-[12px] text-text-muted mt-0.5">{mine.name}</p>
-        </div>
-        <span className={cn("px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-bold rounded-sm border", badgeClass)}>
-          {mine.riskLevel}
+      <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px]" style={{ backgroundColor: riskVar[mine.riskLevel] }} />
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-label={`${mine.code} ${mine.name}, ${riskLabel[mine.riskLevel]} risk. Show on map`}
+        onClick={onSelect}
+        className="block w-full py-3 pl-4 pr-3 text-left focus-visible:outline-offset-[-2px]"
+      >
+        <span className="flex items-start justify-between gap-3">
+          <span className="flex min-w-0 items-start gap-2.5">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-neutral text-[10px] font-semibold text-text-secondary kd-num">{rank}</span>
+            <span className="min-w-0">
+              <span className="block font-mono text-[13px] font-semibold text-text-primary">{mine.code}</span>
+              <span className="block truncate text-[12px] text-text-muted">{mine.name}</span>
+            </span>
+          </span>
+          <StatusBadge status={mine.riskLevel} />
         </span>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-border/50">
-        <div>
-          <p className="text-[10px] sm:text-[11px] text-text-muted mb-0.5 sm:mb-1 flex items-center gap-1"><ShieldAlert className="w-3 h-3 sm:w-3.5 sm:h-3.5"/> Compliance</p>
-          <p className="font-mono text-[12px] sm:text-[13px] text-text-primary">{mine.complianceScore}%</p>
+
+        <span className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-2.5">
+          <span>
+            <span className="flex items-center gap-1 text-[11px] text-text-muted">
+              <ShieldAlert className="h-3 w-3" /> Compliance
+            </span>
+            <span className="mt-1 flex items-center gap-2">
+              <span className="h-1 flex-1 overflow-hidden rounded-full bg-chart-track">
+                <span className={cn('block h-full rounded-full', toneFill[tone])} style={{ width: `${mine.complianceScore}%` }} />
+              </span>
+              <span className={cn('text-[12px] font-semibold kd-num', toneText[tone])}>{mine.complianceScore}%</span>
+            </span>
+          </span>
+          <span>
+            <span className="flex items-center gap-1 text-[11px] text-text-muted">
+              <Activity className="h-3 w-3" /> Open CAPA
+            </span>
+            <span className="mt-0.5 block text-[13px] font-semibold text-text-primary kd-num">{openCapaCount}</span>
+          </span>
+        </span>
+      </button>
+
+      {selected && (
+        <div className="px-3 pb-3 pl-4">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface text-[12px] font-semibold text-text-primary transition-colors hover:border-border-strong"
+          >
+            <MapPin className="h-3.5 w-3.5 text-amber" /> Open mine profile
+          </button>
         </div>
-        <div>
-          <p className="text-[10px] sm:text-[11px] text-text-muted mb-0.5 sm:mb-1 flex items-center gap-1"><Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5"/> Open CAPA</p>
-          <p className="font-mono text-[12px] sm:text-[13px] text-text-primary">{openCapaCount}</p>
-        </div>
-      </div>
+      )}
     </div>
   )
 
   if (mine.code === 'WCL-04') {
     return (
-      <DemoHighlight key={mine.id} step={2} tooltip="The risk engine prioritizes WCL-04 for attention.">
+      <DemoHighlight step={2} tooltip="The risk engine prioritizes WCL-04 for attention.">
         {card}
       </DemoHighlight>
     )
   }
 
-  return <div key={mine.id}>{card}</div>
+  return card
 }

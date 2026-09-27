@@ -1,8 +1,16 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Search, ShieldAlert, AlertTriangle, ArrowDown, Activity, CheckCircle, FileText, Zap, X } from 'lucide-react'
-import { StatusBadge } from '../components/shared/StatusBadge'
+import {
+  ShieldAlert, AlertTriangle, Activity, CheckCircle, FileText, Zap, Camera, FileSearch, Scale,
+  ClipboardCheck, ChevronRight, Sparkles, GitBranch, SearchX,
+} from 'lucide-react'
+import { StatusBadge, Tag } from '../components/shared/StatusBadge'
 import { KPICard } from '../components/shared/KPICard'
-import { cn } from '../lib/utils'
+import { PageHeader } from '../components/ui/PageHeader'
+import { Card } from '../components/ui/Card'
+import { SearchInput, Select } from '../components/ui/Field'
+import { EmptyState } from '../components/ui/States'
+import { SideSheet, SheetSection, DetailItem } from '../components/ui/SideSheet'
+import { cn, formatDate } from '../lib/utils'
 import { useDemo } from '../contexts/DemoContext'
 import DemoHighlight from '../components/shared/DemoHighlight'
 
@@ -96,6 +104,16 @@ const mockRisks = [
   }
 ]
 
+const statusLabel: Record<string, string> = { OPEN: 'OPEN', CLOSED: 'CLOSED', MONITORING: 'MONITORING' }
+
+const chainSteps = [
+  { label: 'Evidence', detail: 'Photo, video, sensor or record from the field', Icon: Camera },
+  { label: 'Observation', detail: 'Finding raised by inspector or AI', Icon: FileSearch },
+  { label: 'Obligation', detail: 'Statutory clause the finding maps to', Icon: Scale },
+  { label: 'Risk', detail: 'Severity scored by the risk engine', Icon: ShieldAlert },
+  { label: 'CAPA', detail: 'Corrective action with an SLA owner', Icon: ClipboardCheck },
+]
+
 export default function ComplianceRisk() {
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState<string>('ALL')
@@ -104,7 +122,7 @@ export default function ComplianceRisk() {
 
   const { isActive: demoActive, currentStep } = useDemo()
 
-  const domains = useMemo(() => ['ALL', ...new Set(mockRisks.map(r => r.domain))], [])
+  const domains = useMemo(() => ['ALL', ...new Set(mockRisks.map((r) => r.domain))], [])
 
   // Auto-select WCL-04 Risk for Demo Step 5
   useEffect(() => {
@@ -113,266 +131,284 @@ export default function ComplianceRisk() {
     }
   }, [demoActive, currentStep, selectedRiskId])
   const filteredRisks = useMemo(() => {
-    return mockRisks.filter(r => {
-      const matchSearch = r.mine.toLowerCase().includes(search.toLowerCase()) || r.observation.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase())
+    return mockRisks.filter((r) => {
+      const matchSearch =
+        r.mine.toLowerCase().includes(search.toLowerCase()) || r.observation.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase())
       const matchRisk = riskFilter === 'ALL' || r.riskLevel === riskFilter
       const matchDomain = domainFilter === 'ALL' || r.domain === domainFilter
       return matchSearch && matchRisk && matchDomain
     })
   }, [search, riskFilter, domainFilter])
 
-  const highRiskCount = mockRisks.filter(r => r.riskLevel === 'HIGH').length
-  const medRiskCount = mockRisks.filter(r => r.riskLevel === 'MEDIUM').length
-  const lowRiskCount = mockRisks.filter(r => r.riskLevel === 'LOW').length
+  const highRiskCount = mockRisks.filter((r) => r.riskLevel === 'HIGH').length
+  const medRiskCount = mockRisks.filter((r) => r.riskLevel === 'MEDIUM').length
+  const lowRiskCount = mockRisks.filter((r) => r.riskLevel === 'LOW').length
 
-  const selectedRisk = mockRisks.find(r => r.id === selectedRiskId)
+  const selectedRisk = mockRisks.find((r) => r.id === selectedRiskId)
 
   return (
-    <div className="relative h-[calc(100vh-140px)] flex flex-col space-y-4">
+    <div className="space-y-5">
+      <PageHeader
+        title="Compliance & Risk"
+        description="Explainable risk engine linking field evidence and observations to statutory obligations."
+        meta={<Tag tone="warning">Prototype model</Tag>}
+      />
+
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 flex-shrink-0">
-        <KPICard label="HIGH RISK" value={highRiskCount} subtitle="Active critical risks" variant="danger" icon={<AlertTriangle className="w-4 h-4" />} />
-        <KPICard label="MEDIUM RISK" value={medRiskCount} subtitle="Elevated warnings" variant="warning" icon={<ShieldAlert className="w-4 h-4" />} />
-        <KPICard label="LOW RISK" value={lowRiskCount} subtitle="Minor deviations" variant="success" icon={<CheckCircle className="w-4 h-4" />} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:gap-4">
+        <KPICard label="HIGH RISK" value={highRiskCount} subtitle="Active critical risks" variant="danger" icon={<AlertTriangle />} />
+        <KPICard label="MEDIUM RISK" value={medRiskCount} subtitle="Elevated warnings" variant="warning" icon={<ShieldAlert />} />
+        <KPICard label="LOW RISK" value={lowRiskCount} subtitle="Minor deviations" variant="success" icon={<CheckCircle />} />
       </div>
 
-      {/* Table Section */}
-      <div className="flex-1 bg-surface-raised border border-border rounded flex flex-col overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-border flex flex-wrap gap-3 items-center bg-mine-black/40">
-          <h2 className="font-heading text-lg text-text-primary tracking-wide mr-4 whitespace-nowrap">RISK ENGINE</h2>
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-            <input
-              type="text"
-              placeholder="Search risks..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-mine-black border border-border rounded text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber/50"
-            />
+      {/* How risk is derived */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3.5">
+          <h2 className="kd-overline">How a risk is derived</h2>
+          <span className="text-[11px] text-text-muted">Every risk is traceable back to its evidence</span>
+        </div>
+        <ol className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-5 sm:gap-0">
+          {chainSteps.map((step, i) => (
+            <li key={step.label} className="relative flex items-center gap-3 sm:flex-col sm:items-start sm:gap-2 sm:pr-6">
+              <div className="flex items-center gap-2 sm:w-full">
+                <span
+                  className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
+                    step.label === 'Risk' ? 'border-danger/30 bg-danger-soft text-danger' : step.label === 'Obligation' ? 'border-amber/30 bg-amber-soft text-amber' : 'border-border bg-inset text-text-secondary'
+                  )}
+                >
+                  <step.Icon className="h-4 w-4" />
+                </span>
+                {i < chainSteps.length - 1 && (
+                  <span aria-hidden="true" className="hidden h-px flex-1 bg-border sm:block">
+                    <ChevronRight className="-mt-[7px] ml-auto h-3.5 w-3.5 text-text-disabled" />
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[13px] font-semibold text-text-primary">{step.label}</div>
+                <div className="text-[12px] leading-4 text-text-muted">{step.detail}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </Card>
+
+      {/* Risk register */}
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center">
+          <div className="mr-2 shrink-0">
+            <h2 className="text-[14px] font-semibold text-text-primary">Risk engine</h2>
+            <p className="text-[12px] text-text-muted">Prototype Risk Model — Not scientifically validated.</p>
           </div>
-          <select
-            value={riskFilter}
-            onChange={(e) => setRiskFilter(e.target.value)}
-            className="px-3 py-2 bg-mine-black border border-border rounded text-[12px] text-text-secondary focus:outline-none"
-          >
-            <option value="ALL">All Risk Levels</option>
-            <option value="HIGH">High Risk</option>
-            <option value="MEDIUM">Medium Risk</option>
-            <option value="LOW">Low Risk</option>
-          </select>
-          <select
-            value={domainFilter}
-            onChange={(e) => setDomainFilter(e.target.value)}
-            className="px-3 py-2 bg-mine-black border border-border rounded text-[12px] text-text-secondary focus:outline-none"
-          >
-            {domains.map(cat => (
-              <option key={cat} value={cat}>{cat === 'ALL' ? 'All Domains' : cat}</option>
-            ))}
-          </select>
-          <div className="ml-auto text-[11px] text-text-muted">
-            Prototype Risk Model — Not scientifically validated.
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row lg:justify-end">
+            <SearchInput value={search} onValueChange={setSearch} placeholder="Search risks..." wrapperClassName="sm:w-64" />
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <Select aria-label="Risk level" value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="sm:w-[150px]">
+                <option value="ALL">All Risk Levels</option>
+                <option value="HIGH">High Risk</option>
+                <option value="MEDIUM">Medium Risk</option>
+                <option value="LOW">Low Risk</option>
+              </Select>
+              <Select aria-label="Domain" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)} className="sm:w-[150px]">
+                {domains.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat === 'ALL' ? 'All Domains' : cat}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="flex-1 overflow-auto">
-          <div className="min-w-[800px]">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-mine-black/95 backdrop-blur z-10">
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Risk ID</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Mine</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Observation</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Domain</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Risk Level</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Confidence</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Applicable Obligation</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Last Updated</th>
+        <div className="kd-table-wrap">
+          <table className="kd-table min-w-[880px] whitespace-nowrap">
+            <thead>
+              <tr>
+                <th scope="col">Risk ID</th>
+                <th scope="col">Mine</th>
+                <th scope="col">Observation</th>
+                <th scope="col">Domain</th>
+                <th scope="col">Risk Level</th>
+                <th scope="col">Confidence</th>
+                <th scope="col">Applicable Obligation</th>
+                <th scope="col">Status</th>
+                <th scope="col">Last Updated</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50">
+            <tbody>
               {filteredRisks.map((risk) => (
-                <tr 
-                  key={risk.id} 
+                <tr
+                  key={risk.id}
+                  data-clickable="true"
+                  data-selected={selectedRiskId === risk.id}
+                  tabIndex={0}
                   onClick={() => setSelectedRiskId(risk.id)}
-                  className="hover:bg-mine-black cursor-pointer transition-colors group"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setSelectedRiskId(risk.id)
+                  }}
                 >
-                  <td className="px-4 py-3 text-[12px] font-mono text-amber font-medium">{risk.id}</td>
-                  <td className="px-4 py-3 text-[12px] text-text-primary">{risk.mine}</td>
-                  <td className="px-4 py-3 text-[12px] text-text-primary font-medium">{risk.observation}</td>
-                  <td className="px-4 py-3 text-[12px] text-text-secondary">{risk.domain}</td>
-                  <td className="px-4 py-3"><StatusBadge status={risk.riskLevel as any} /></td>
-                  <td className="px-4 py-3 text-[12px] text-text-secondary font-mono">{risk.confidence}%</td>
-                  <td className="px-4 py-3 text-[12px] text-text-secondary font-mono">{risk.obligation}</td>
-                  <td className="px-4 py-3">
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-bold tracking-wider",
-                      risk.status === 'OPEN' ? "bg-amber-dim text-amber border border-amber/20" :
-                      risk.status === 'CLOSED' ? "bg-green-dim text-green border border-green/20" :
-                      "bg-blue-900/30 text-blue-400 border border-blue-500/20"
-                    )}>
-                      {risk.status}
-                    </span>
+                  <td className="font-mono text-[12px] font-medium text-amber">{risk.id}</td>
+                  <td className="font-mono text-[12px] text-text-primary">{risk.mine}</td>
+                  <td className="font-medium text-text-primary">{risk.observation}</td>
+                  <td>{risk.domain}</td>
+                  <td>
+                    <StatusBadge status={risk.riskLevel} />
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-text-secondary font-mono">
-                    {new Date(risk.lastUpdated).toLocaleDateString()}
+                  <td>
+                    <ConfidenceMeter value={risk.confidence} />
                   </td>
+                  <td className="font-mono text-[12px]">{risk.obligation}</td>
+                  <td>
+                    <StatusBadge status={statusLabel[risk.status] ?? risk.status} hideDot />
+                  </td>
+                  <td className="kd-num">{formatDate(risk.lastUpdated)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {filteredRisks.length === 0 && (
-            <div className="p-8 text-center text-text-muted">No risks match the current filters.</div>
-          )}
-          </div>
+          {filteredRisks.length === 0 && <EmptyState compact icon={SearchX} title="No risks match the current filters." description="Try a different search term or clear the filters." />}
         </div>
-      </div>
+      </Card>
 
-      {/* Overlay Backdrop */}
-      {selectedRisk && (
-        <div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity"
-          onClick={() => setSelectedRiskId(null)}
-        />
-      )}
-
-      {/* Right Drawer */}
-      <div 
-        className={cn(
-          "fixed inset-y-0 right-0 w-full sm:w-[550px] bg-surface-raised border-l border-border shadow-2xl transform transition-transform duration-300 z-50 flex flex-col",
-          selectedRisk ? "translate-x-0" : "translate-x-full"
-        )}
+      {/* Detail sheet */}
+      <SideSheet
+        open={!!selectedRisk}
+        onClose={() => setSelectedRiskId(null)}
+        closeOnEscape={!demoActive}
+        eyebrow="Risk detail"
+        title={selectedRisk?.observation}
+        badges={selectedRisk && <StatusBadge status={selectedRisk.riskLevel} />}
+        subtitle={
+          selectedRisk && (
+            <span className="font-mono">
+              {selectedRisk.id} • {selectedRisk.mine} • {selectedRisk.domain}
+            </span>
+          )
+        }
       >
         {selectedRisk && (
-          <>
-            <div className="flex items-center justify-between p-5 border-b border-border bg-mine-black/50">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="font-heading text-xl text-text-primary tracking-wide">RISK DETAIL</h2>
-                  <StatusBadge status={selectedRisk.riskLevel as any} />
-                </div>
-                <p className="text-[12px] font-mono text-text-muted mt-1">{selectedRisk.id} • {selectedRisk.mine}</p>
-              </div>
-              <button 
-                onClick={() => setSelectedRiskId(null)}
-                className="p-2 hover:bg-mine-black rounded transition-colors text-text-muted hover:text-text-primary"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
-              
-              {/* WHY THIS WAS FLAGGED */}
-              <DemoHighlight step={5} tooltip="The Compliance & Risk Engine breaks down exactly why WCL-04's risk score was elevated, linking evidence to statutory obligations.">
-                <section>
-                  <h3 className="font-heading text-[14px] font-semibold text-amber tracking-widest mb-4 flex items-center gap-2">
-                    <Activity className="w-4 h-4" /> WHY THIS WAS FLAGGED
-                  </h3>
-                  <div className="space-y-4 bg-mine-black border border-border p-5 rounded-lg">
+          <div className="space-y-6 p-5">
+            {/* WHY THIS WAS FLAGGED */}
+            <DemoHighlight step={5} tooltip="The Compliance & Risk Engine breaks down exactly why WCL-04's risk score was elevated, linking evidence to statutory obligations.">
+              <SheetSection title="Why this was flagged" icon={<Activity />}>
+                <div className="space-y-4 rounded-lg border border-border bg-surface p-4">
                   <div>
-                    <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Evidence</p>
-                    <p className="text-[13px] text-text-primary bg-surface p-2 border border-border/50 rounded">{selectedRisk.evidence}</p>
+                    <p className="mb-1 text-[11px] font-medium text-text-muted">Evidence</p>
+                    <p className="rounded-md border border-border bg-inset px-3 py-2 text-[13px] leading-5 text-text-primary">{selectedRisk.evidence}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Observation</p>
-                      <p className="text-[13px] font-medium text-text-primary">{selectedRisk.observation}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Applicable Obligation</p>
-                      <p className="text-[13px] font-mono text-amber">{selectedRisk.obligation}</p>
-                    </div>
-                  </div>
+                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <DetailItem label="Observation">
+                      <span className="font-medium">{selectedRisk.observation}</span>
+                    </DetailItem>
+                    <DetailItem label="Applicable Obligation">
+                      <span className="font-mono text-amber">{selectedRisk.obligation}</span>
+                    </DetailItem>
+                  </dl>
                   <div>
-                    <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Risk Factors</p>
-                    <ul className="list-disc list-inside text-[13px] text-text-secondary space-y-1">
-                      {selectedRisk.riskFactors.map((rf, idx) => (
-                        <li key={idx}>{rf}</li>
+                    <p className="mb-1.5 text-[11px] font-medium text-text-muted">Risk Factors</p>
+                    <ul className="space-y-1.5">
+                      {selectedRisk.riskFactors.map((rf) => (
+                        <li key={rf} className="flex items-start gap-2 text-[13px] text-text-secondary">
+                          <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-warning-solid" aria-hidden="true" />
+                          {rf}
+                        </li>
                       ))}
                     </ul>
                   </div>
                   <div>
-                    <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1 flex justify-between">
-                      <span>AI Reasoning</span>
-                      <span className="text-blue-400 font-mono">Confidence: {selectedRisk.confidence}%</span>
+                    <p className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-text-muted">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-info" /> AI Reasoning
+                      </span>
+                      <span className="font-semibold text-info kd-num">Confidence: {selectedRisk.confidence}%</span>
                     </p>
-                    <p className="text-[13px] text-text-primary bg-blue-900/10 p-3 border border-blue-500/20 rounded-md">
-                      {selectedRisk.aiReasoning}
-                    </p>
+                    <p className="rounded-md border border-info/25 bg-info-soft px-3 py-2.5 text-[13px] leading-5 text-text-primary">{selectedRisk.aiReasoning}</p>
                   </div>
-                  <div className="pt-2 border-t border-border/50">
-                    <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Recommended Action</p>
-                    <p className="text-[13px] font-semibold text-text-primary flex items-start gap-2">
-                      <Zap className="w-4 h-4 text-amber shrink-0 mt-0.5" />
+                  <div className="rounded-md border border-amber/30 bg-amber-soft px-3 py-2.5">
+                    <p className="text-[11px] font-medium text-amber">Recommended Action</p>
+                    <p className="mt-0.5 flex items-start gap-2 text-[13px] font-semibold leading-5 text-text-primary">
+                      <Zap className="mt-0.5 h-4 w-4 shrink-0 text-amber" />
                       {selectedRisk.recommendedAction}
                     </p>
                   </div>
                 </div>
-              </section>
-              </DemoHighlight>
+              </SheetSection>
+            </DemoHighlight>
 
-              {/* LOGICAL CHAIN */}
-              <section>
-                <h3 className="font-heading text-[14px] font-semibold text-text-secondary tracking-widest mb-4 flex items-center gap-2">
-                  <FileText className="w-4 h-4" /> REASONING CHAIN
-                </h3>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-full bg-surface-raised border border-border py-2 px-4 rounded text-center text-[12px] font-mono text-text-secondary">Evidence</div>
-                  <ArrowDown className="w-4 h-4 text-border" />
-                  <div className="w-full bg-surface-raised border border-border py-2 px-4 rounded text-center text-[12px] font-mono text-text-secondary">Observation</div>
-                  <ArrowDown className="w-4 h-4 text-border" />
-                  <div className="w-full bg-surface-raised border border-border py-2 px-4 rounded text-center text-[12px] font-mono text-amber">Obligation</div>
-                  <ArrowDown className="w-4 h-4 text-border" />
-                  <div className="w-full bg-surface-raised border border-blue-500/30 bg-blue-900/10 py-2 px-4 rounded text-center text-[12px] font-mono text-blue-400 font-semibold">Risk Engine</div>
-                  <ArrowDown className="w-4 h-4 text-border" />
-                  <div className="w-full bg-surface-raised border border-red/30 bg-red-dim py-2 px-4 rounded text-center text-[12px] font-mono text-red font-semibold">Risk</div>
-                  <ArrowDown className="w-4 h-4 text-border" />
-                  <div className="w-full bg-surface-raised border border-border py-2 px-4 rounded text-center text-[12px] font-mono text-text-primary">Action</div>
-                </div>
-              </section>
+            {/* LOGICAL CHAIN */}
+            <SheetSection title="Reasoning chain" icon={<FileText />}>
+              <ol className="relative space-y-2">
+                {[
+                  { label: 'Evidence', tone: 'neutral' },
+                  { label: 'Observation', tone: 'neutral' },
+                  { label: 'Obligation', tone: 'accent' },
+                  { label: 'Risk Engine', tone: 'info' },
+                  { label: 'Risk', tone: 'danger' },
+                  { label: 'Action', tone: 'neutral' },
+                ].map((node, idx, arr) => (
+                  <li key={node.label} className="relative flex items-center gap-3">
+                    {idx < arr.length - 1 && <span aria-hidden="true" className="absolute left-[11px] top-6 h-[calc(100%-8px)] w-px bg-border" />}
+                    <span
+                      className={cn(
+                        'relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold kd-num',
+                        node.tone === 'danger' && 'border-danger/40 bg-danger-soft text-danger',
+                        node.tone === 'accent' && 'border-amber/40 bg-amber-soft text-amber',
+                        node.tone === 'info' && 'border-info/40 bg-info-soft text-info',
+                        node.tone === 'neutral' && 'border-border bg-surface text-text-muted'
+                      )}
+                    >
+                      {idx + 1}
+                    </span>
+                    <span
+                      className={cn(
+                        'flex-1 rounded-md border px-3 py-1.5 text-[13px]',
+                        node.tone === 'danger' ? 'border-danger/25 bg-danger-soft/60 font-semibold text-danger' : node.tone === 'info' ? 'border-info/25 bg-info-soft/60 font-semibold text-info' : node.tone === 'accent' ? 'border-amber/25 bg-amber-soft/60 font-medium text-amber' : 'border-border bg-surface text-text-secondary'
+                      )}
+                    >
+                      {node.label}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </SheetSection>
 
-              {/* RISK PROPAGATION */}
-              <section>
-                <h3 className="font-heading text-[14px] font-semibold text-text-secondary tracking-widest mb-4 flex items-center gap-2">
-                  <Activity className="w-4 h-4" /> RISK PROPAGATION
-                </h3>
-                <div className="bg-mine-black border border-border rounded-lg p-5">
-                  <div className="flex flex-col space-y-4">
-                    {selectedRisk.propagation.map((step, idx) => (
-                      <div key={idx} className="flex flex-col">
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono",
-                            idx === 0 ? "bg-surface border border-border text-text-secondary" :
-                            idx === selectedRisk.propagation.length - 1 ? "bg-red-dim border border-red/30 text-red" :
-                            "bg-amber-dim border border-amber/30 text-amber"
-                          )}>
-                            {idx + 1}
-                          </div>
-                          <span className={cn(
-                            "text-[13px]",
-                            idx === selectedRisk.propagation.length - 1 ? "font-semibold text-text-primary" : "text-text-secondary"
-                          )}>
-                            {step}
-                          </span>
-                        </div>
-                        {idx < selectedRisk.propagation.length - 1 && (
-                          <div className="w-px h-6 bg-border ml-3 my-1" />
+            {/* RISK PROPAGATION */}
+            <SheetSection title="Risk propagation" icon={<GitBranch />}>
+              <ol className="rounded-lg border border-border bg-surface p-4">
+                {selectedRisk.propagation.map((step, idx) => {
+                  const last = idx === selectedRisk.propagation.length - 1
+                  return (
+                    <li key={step} className="relative flex gap-3 pb-4 last:pb-0">
+                      {!last && <span aria-hidden="true" className="absolute left-3 top-7 h-[calc(100%-24px)] w-px bg-border" />}
+                      <span
+                        className={cn(
+                          'relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold kd-num',
+                          idx === 0 ? 'border-border bg-inset text-text-secondary' : last ? 'border-danger/40 bg-danger-soft text-danger' : 'border-warning/40 bg-warning-soft text-warning'
                         )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-            </div>
-          </>
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className={cn('pt-0.5 text-[13px]', last ? 'font-semibold text-text-primary' : 'text-text-secondary')}>{step}</span>
+                    </li>
+                  )
+                })}
+              </ol>
+            </SheetSection>
+          </div>
         )}
-      </div>
+      </SideSheet>
+    </div>
+  )
+}
 
+function ConfidenceMeter({ value }: { value: number }) {
+  return (
+    <div className="flex items-center gap-2" aria-label={`Confidence ${value}%`}>
+      <span className="h-1 w-12 overflow-hidden rounded-full bg-chart-track">
+        <span className="block h-full rounded-full bg-info-solid" style={{ width: `${value}%` }} />
+      </span>
+      <span className="text-[12px] text-text-primary kd-num">{value}%</span>
     </div>
   )
 }

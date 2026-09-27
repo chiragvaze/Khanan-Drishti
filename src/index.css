@@ -1,195 +1,455 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
 
+/* ==========================================================================
+   KHANAN DRISHTI — DESIGN TOKENS
+   Every colour used by the UI is a semantic token. Dark is the default
+   (primary identity); the light theme re-maps the same tokens below.
+   Components must consume tokens (bg-surface, text-danger, …), never raw hex.
+   ========================================================================== */
+
+@custom-variant light (&:where([data-theme=light], [data-theme=light] *));
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 @theme {
-  --color-mine-black: #0F1419;
-  --color-mine-black-light: #1A2028;
-  --color-slate: #2D3A45;
-  --color-slate-light: #3D4E5C;
-  --color-slate-lighter: #4D6070;
+  /* Surfaces — layered from back to front */
+  --color-canvas: #0B1015;           /* app background */
+  --color-surface: #111820;          /* cards, sidebar, header */
+  --color-surface-2: #161F28;        /* table headers, nested panels, hover */
+  --color-surface-raised: #1B2630;   /* popovers, menus, dialogs */
+  --color-inset: #0D1319;            /* wells / recessed blocks inside cards */
+  --color-field: #0D1319;            /* form controls */
+  --color-overlay: rgb(3 6 9 / 0.72);/* modal & drawer backdrop */
+
+  /* Lines */
+  --color-border: rgb(255 255 255 / 0.08);
+  --color-border-strong: rgb(255 255 255 / 0.15);
+
+  /* Neutral fills (avatars, toggles, neutral badges) */
+  --color-neutral: #243140;
+  --color-neutral-strong: #314051;
+
+  /* Text */
+  --color-text-primary: #F3F0E8;
+  --color-text-secondary: #9AA6B2;
+  --color-text-muted: #7D8995;
+  --color-text-disabled: #4F5B67;
+
+  /* Brand accent. `amber` = text / icons / indicators,
+     `accent` = filled controls (primary buttons), `accent-fg` = text on accent. */
   --color-amber: #F0A202;
-  --color-amber-light: #F5BE4D;
-  --color-amber-dim: rgba(240, 162, 2, 0.15);
-  --color-green: #2E7D4F;
-  --color-green-light: #3D9963;
-  --color-green-dim: rgba(46, 125, 79, 0.15);
-  --color-red: #C1292E;
-  --color-red-light: #D9484D;
-  --color-red-dim: rgba(193, 41, 46, 0.15);
-  --color-sand: #EDE6DA;
-  --color-sand-dark: #D6CFC3;
-  --color-surface: #151C24;
-  --color-surface-raised: #1C2530;
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-border-light: rgba(255, 255, 255, 0.12);
-  --color-text-primary: #EDE6DA;
-  --color-text-secondary: #8E99A4;
-  --color-text-muted: #5C6A77;
+  --color-amber-soft: rgb(240 162 2 / 0.12);
+  --color-accent: #F0A202;
+  --color-accent-hover: #F7B530;
+  --color-accent-fg: #17120A;
 
+  /* Status — `x` = readable text/icon, `x-solid` = fills/markers, `x-soft` = tinted background */
+  --color-danger: #E8605F;
+  --color-danger-solid: #C1292E;
+  --color-danger-soft: rgb(193 41 46 / 0.16);
+  --color-warning: #F2A541;
+  --color-warning-solid: #E08A1E;
+  --color-warning-soft: rgb(224 138 30 / 0.14);
+  --color-success: #4DB27A;
+  --color-success-solid: #2E7D4F;
+  --color-success-soft: rgb(46 125 79 / 0.18);
+  --color-info: #86AEDD;
+  --color-info-solid: #4A7AB8;
+  --color-info-soft: rgb(74 122 184 / 0.16);
+
+  --color-focus: #F0A202;
+
+  /* Data visualisation */
+  --color-chart-grid: rgb(255 255 255 / 0.06);
+  --color-chart-axis: #7D8995;
+  --color-chart-track: rgb(255 255 255 / 0.07);
+
+  /* Theme-invariant brand constants (logo plates, printed documents) */
+  --color-brand-amber: #F0A202;
+  --color-brand-charcoal: #0F1419;
+  --color-brand-slate: #2D3A45;
+  --color-brand-green: #2E7D4F;
+  --color-brand-red: #C1292E;
+  --color-brand-sand: #EDE6DA;
+
+  /* Elevation */
+  --shadow-card: var(--kd-shadow-card);
+  --shadow-pop: var(--kd-shadow-pop);
+
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-heading: 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-fade-in: kd-fade-in 200ms var(--ease-out-soft) backwards;
+  --animate-pop-in: kd-pop-in 160ms var(--ease-out-soft) backwards;
+  --animate-slide-in-left: kd-slide-in-left 240ms var(--ease-out-soft) backwards;
+  --animate-slide-in-right: kd-slide-in-right 240ms var(--ease-out-soft) backwards;
+  --animate-fade-in-backdrop: kd-fade 180ms ease-out backwards;
+  /* Page entrance: opacity only (a transform would re-parent fixed children) and
+     `backwards` fill so no stacking context lingers to trap sheets/overlays. */
+  --animate-page-in: kd-fade 200ms ease-out backwards;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:root {
+  --kd-shadow-card: 0 1px 0 rgb(0 0 0 / 0.35);
+  --kd-shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
+  --kd-skeleton-base: rgb(255 255 255 / 0.05);
+  --kd-skeleton-shine: rgb(255 255 255 / 0.09);
 }
 
-html {
-  font-size: 14px;
+/* ---------------------------------------------------------------- LIGHT */
+:root[data-theme='light'] {
+  --color-canvas: #F4F6F8;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F7F9FA;
+  --color-surface-raised: #FFFFFF;
+  --color-inset: #F4F6F8;
+  --color-field: #FFFFFF;
+  --color-overlay: rgb(15 23 32 / 0.42);
+
+  --color-border: #DCE2E7;
+  --color-border-strong: #C3CCD4;
+
+  --color-neutral: #E6EAEE;
+  --color-neutral-strong: #D3DAE1;
+
+  --color-text-primary: #17212B;
+  --color-text-secondary: #4F5D69;
+  --color-text-muted: #6B7884;
+  --color-text-disabled: #A3ADB6;
+
+  --color-amber: #A66A00;
+  --color-amber-soft: #FBF1DC;
+  --color-accent: #EBA000;
+  --color-accent-hover: #D99300;
+  --color-accent-fg: #17120A;
+
+  --color-danger: #B4232A;
+  --color-danger-solid: #B4232A;
+  --color-danger-soft: #FCEDED;
+  --color-warning: #A45800;
+  --color-warning-solid: #D97B0A;
+  --color-warning-soft: #FDF1E3;
+  --color-success: #247047;
+  --color-success-solid: #2A7D50;
+  --color-success-soft: #E8F3EC;
+  --color-info: #2F5F9E;
+  --color-info-solid: #3D6FB0;
+  --color-info-soft: #EAF1FA;
+
+  --color-focus: #C98200;
+
+  --color-chart-grid: #E7EBEF;
+  --color-chart-axis: #6B7884;
+  --color-chart-track: #E9EDF1;
+
+  --kd-shadow-card: 0 1px 2px rgb(16 24 40 / 0.05);
+  --kd-shadow-pop: 0 16px 40px -12px rgb(16 24 40 / 0.22), 0 2px 6px rgb(16 24 40 / 0.06), 0 0 0 1px rgb(16 24 40 / 0.06);
+  --kd-skeleton-base: #EBEFF2;
+  --kd-skeleton-shine: #F5F7F9;
 }
 
-body {
-  font-family: var(--font-body);
-  background-color: var(--color-mine-black);
-  color: var(--color-text-primary);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
+/* ==========================================================================
+   BASE — lives in the base layer so Tailwind utilities always win.
+   ========================================================================== */
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    background-color: var(--color-canvas);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv11', 'ss01';
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100vh;
+    height: 100dvh;
+    width: 100%;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text-primary);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--color-text-muted);
+    opacity: 1;
+  }
+
+  button:not(:disabled), [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  /* Native date picker / select popups follow the theme via color-scheme */
+  select option {
+    background-color: var(--color-surface-raised);
+    color: var(--color-text-primary);
+  }
+
+  /* Scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-neutral-strong) transparent;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-neutral-strong);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--color-text-disabled); }
 }
 
-#root {
-  height: 100vh;
-  height: 100dvh;
-  width: 100vw;
+/* Short, global colour cross-fade used only while the theme is switching */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow, outline-color !important;
+  transition-duration: 200ms !important;
+  transition-timing-function: ease !important;
+  transition-delay: 0s !important;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+/* ==========================================================================
+   COMPONENT CLASSES — shared primitives that are awkward as React components
+   ========================================================================== */
+@layer components {
+  /* Small uppercase label used above values and as table/section captions */
+  .kd-overline {
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .kd-num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Enterprise data table */
+  .kd-table-wrap {
+    width: 100%;
+    overflow: auto;
+  }
+  .kd-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: left;
+    font-size: 13px;
+  }
+  .kd-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-surface-2);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .kd-table tbody td {
+    padding: 10px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+  }
+  /* Compact density for wide registers */
+  .kd-table.kd-table--compact thead th,
+  .kd-table.kd-table--compact tbody td { padding-left: 10px; padding-right: 10px; }
+  .kd-table th:first-child, .kd-table td:first-child { padding-left: 16px; }
+  .kd-table th:last-child, .kd-table td:last-child { padding-right: 16px; }
+  .kd-table tbody tr:last-child td { border-bottom: 0; }
+  .kd-table tbody tr { transition: background-color 120ms ease; }
+  .kd-table tbody tr:hover td { background: var(--color-surface-2); }
+  .kd-table tbody tr[data-selected='true'] td { background: var(--color-amber-soft); }
+  .kd-table tbody tr[data-clickable='true'] { cursor: pointer; }
+  .kd-table tbody tr[data-clickable='true']:focus-visible { outline-offset: -2px; }
+  .kd-table .kd-cell-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .kd-table th.kd-cell-num { text-align: right; }
+
+  /* Sortable table header button */
+  .kd-th-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    border-radius: 4px;
+  }
+  .kd-th-button:hover { color: var(--color-text-primary); }
+
+  /* Skeleton loading shimmer */
+  .kd-skeleton {
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--kd-skeleton-base) 25%, var(--kd-skeleton-shine) 37%, var(--kd-skeleton-base) 63%);
+    background-size: 400% 100%;
+    animation: kd-shimmer 1.4s ease infinite;
+  }
 }
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--color-mine-black);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-slate);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-slate-light);
-}
-
-/* Recharts overrides */
+/* ==========================================================================
+   THIRD-PARTY: Recharts
+   ========================================================================== */
 .recharts-cartesian-axis-tick-value {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
-  fill: var(--color-text-secondary);
+  fill: var(--color-chart-axis);
 }
-
 .recharts-legend-item-text {
   font-family: var(--font-body);
   font-size: 12px;
   color: var(--color-text-secondary) !important;
 }
+.recharts-default-tooltip {
+  background: var(--color-surface-raised) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--kd-shadow-pop);
+  padding: 8px 12px !important;
+  font-size: 12px;
+}
+.recharts-tooltip-label {
+  color: var(--color-text-primary) !important;
+  font-weight: 600;
+  margin-bottom: 2px !important;
+}
+.recharts-tooltip-item { color: var(--color-text-secondary) !important; padding: 0 !important; }
+.recharts-surface:focus, .recharts-wrapper:focus, .recharts-sector:focus { outline: none; }
 
-/* MapLibre overrides */
+/* ==========================================================================
+   THIRD-PARTY: MapLibre
+   ========================================================================== */
+/* Dark theme keeps the tinted "control room" basemap; light theme shows a calm,
+   desaturated standard basemap. */
+[data-theme='dark'] .maplibregl-canvas {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+[data-theme='light'] .maplibregl-canvas {
+  filter: saturate(0.45) contrast(0.96) brightness(1.02);
+}
+
 .maplibregl-popup-content {
   background: var(--color-surface-raised) !important;
   color: var(--color-text-primary) !important;
-  border: 1px solid var(--color-border-light) !important;
-  border-radius: 4px !important;
-  padding: 12px !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 10px !important;
+  padding: 14px !important;
   font-family: var(--font-body) !important;
   font-size: 13px !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+  box-shadow: var(--kd-shadow-pop) !important;
 }
+.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: var(--color-surface-raised) !important; }
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: var(--color-surface-raised) !important; }
+.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--color-surface-raised) !important; }
+.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--color-surface-raised) !important; }
+.maplibregl-popup-close-button {
+  color: var(--color-text-muted) !important;
+  font-size: 18px !important;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  right: 4px !important;
+  top: 4px !important;
+}
+.maplibregl-popup-close-button:hover { background: var(--color-surface-2) !important; color: var(--color-text-primary) !important; }
 
-.maplibregl-popup-tip {
-  border-top-color: var(--color-surface-raised) !important;
+.maplibregl-ctrl-group {
+  background: var(--color-surface-raised) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--kd-shadow-pop) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
 }
+.maplibregl-ctrl-group button + button { border-top: 1px solid var(--color-border) !important; }
+.maplibregl-ctrl-group button:not(:disabled):hover { background-color: var(--color-surface-2) !important; }
+[data-theme='dark'] .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(0.85); }
 
 .maplibregl-ctrl-attrib {
-  background-color: rgba(17, 24, 34, 0.7) !important;
+  background-color: color-mix(in oklab, var(--color-surface) 85%, transparent) !important;
   color: var(--color-text-muted) !important;
   font-size: 10px !important;
-  border-radius: 4px;
+  border-radius: 6px 0 0 0;
   padding: 2px 6px !important;
 }
+.maplibregl-ctrl-attrib a { color: var(--color-text-secondary) !important; text-decoration: none; }
 
-.maplibregl-ctrl-attrib a {
-  color: var(--color-text-secondary) !important;
-  text-decoration: none;
+/* On small screens the page's own toolbar occupies the top edge */
+.kd-map-compact .maplibregl-ctrl-top-right { top: 48px; }
+
+/* Map popup content (built with DOM in GISRiskMap) */
+.kd-map-popup { min-width: 210px; font-family: var(--font-body); }
+.kd-map-popup__code { font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+.kd-map-popup__name { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+.kd-map-popup__rows { margin-top: 12px; display: flex; flex-direction: column; font-size: 12px; }
+.kd-map-popup__row { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px solid var(--color-border); }
+.kd-map-popup__row span:first-child { color: var(--color-text-muted); }
+.kd-map-popup__row span:last-child { color: var(--color-text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+.kd-map-popup__risk { display: inline-flex; align-items: center; gap: 6px; }
+.kd-map-popup__dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+.kd-map-popup__btn {
+  width: 100%; margin-top: 12px; height: 32px; border-radius: 6px;
+  background: var(--color-accent); color: var(--color-accent-fg);
+  font-size: 12px; font-weight: 600; border: 0; cursor: pointer;
+  transition: background-color 150ms ease;
 }
+.kd-map-popup__btn:hover { background: var(--color-accent-hover); }
 
-/* Animation Utilities */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out both;
-}
-
-/* Mobile Drawer Animations */
-@keyframes slideInLeft {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes slideOutLeft {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
-}
-
-@keyframes fadeInBackdrop {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.animate-slide-in-left {
-  animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-fade-in-backdrop {
-  animation: fadeInBackdrop 0.2s ease-out both;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-slate);
-  border-radius: 2px;
-}
-
-/* Dark mode filter for GIS map tiles */
-.maplibregl-canvas {
-  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
-}
-
-/* Touch-friendly horizontal scrolling for tab strips */
+/* ==========================================================================
+   UTILITIES
+   ========================================================================== */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
 
-/* Safe area utilities for modern phones */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
 /* Prevent body scroll when mobile drawer/modal is open */
 body.drawer-open {
@@ -197,10 +457,39 @@ body.drawer-open {
   touch-action: none;
 }
 
-/* Mobile-specific scrollbar — thinner on touch */
-@media (max-width: 1023px) {
-  ::-webkit-scrollbar {
-    width: 3px;
-    height: 3px;
+/* ==========================================================================
+   KEYFRAMES
+   ========================================================================== */
+@keyframes kd-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes kd-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes kd-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes kd-slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes kd-slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes kd-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }

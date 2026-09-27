@@ -3,27 +3,34 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber disabled:pointer-events-none disabled:opacity-50 cursor-pointer',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors duration-150 select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        default: 'bg-amber text-mine-black hover:bg-[#D99202]',
-        destructive: 'bg-[#C1292E] text-white hover:bg-[#A32226]',
-        outline: 'border border-border bg-transparent hover:bg-surface-raised text-text-primary',
-        secondary: 'bg-slate text-text-primary hover:bg-[#3A4A58]',
-        ghost: 'hover:bg-surface-raised text-text-primary',
-        link: 'text-amber underline-offset-4 hover:underline cursor-pointer',
+        primary: 'bg-accent text-accent-fg shadow-card hover:bg-accent-hover',
+        secondary: 'border border-border bg-surface text-text-primary shadow-card hover:border-border-strong hover:bg-surface-2',
+        ghost: 'text-text-secondary hover:bg-surface-2 hover:text-text-primary',
+        danger: 'bg-danger-solid text-white shadow-card hover:bg-danger-solid/90',
+        'danger-outline': 'border border-danger/40 bg-transparent text-danger hover:bg-danger-soft',
+        success: 'bg-success-solid text-white shadow-card hover:bg-success-solid/90',
+        link: 'h-auto px-0 text-amber underline-offset-4 hover:underline',
+        // Backwards-compatible aliases
+        default: 'bg-accent text-accent-fg shadow-card hover:bg-accent-hover',
+        destructive: 'bg-danger-solid text-white shadow-card hover:bg-danger-solid/90',
+        outline: 'border border-border bg-surface text-text-primary shadow-card hover:border-border-strong hover:bg-surface-2',
       },
       size: {
-        default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-10 rounded-md px-8',
-        icon: 'h-9 w-9',
+        sm: 'h-8 px-3 text-[12px] [&_svg]:h-3.5 [&_svg]:w-3.5',
+        md: 'h-9 px-3.5 text-[13px] [&_svg]:h-4 [&_svg]:w-4',
+        lg: 'h-11 px-5 text-[14px] [&_svg]:h-4 [&_svg]:w-4',
+        icon: 'h-9 w-9 [&_svg]:h-4 [&_svg]:w-4',
+        'icon-sm': 'h-8 w-8 [&_svg]:h-4 [&_svg]:w-4',
+        default: 'h-9 px-3.5 text-[13px] [&_svg]:h-4 [&_svg]:w-4',
       },
     },
     defaultVariants: {
-      variant: 'default',
-      size: 'default',
+      variant: 'primary',
+      size: 'md',
     },
   }
 )
@@ -35,15 +42,8 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild: _asChild = false, ...props }, ref) => {
-    // Basic standard button without full Radix Slot to keep dependencies light
-    return (
-      <button
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    )
+  ({ className, variant, size, type = 'button', asChild: _asChild = false, ...props }, ref) => {
+    return <button type={type} className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
   }
 )
 Button.displayName = 'Button'

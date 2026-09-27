@@ -1,11 +1,17 @@
 import { useState, useMemo } from 'react'
-import { Search, ClipboardCheck, AlertTriangle, Brain, X } from 'lucide-react'
+import { ClipboardCheck, AlertTriangle, Brain, X, CheckCircle2, CalendarClock, Paperclip, Scale, SearchX, XCircle } from 'lucide-react'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { KPICard } from '../components/shared/KPICard'
+import { PageHeader } from '../components/ui/PageHeader'
+import { Card } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { Input, SearchInput, Select } from '../components/ui/Field'
+import { EmptyState } from '../components/ui/States'
+import { SideSheet, SheetSection, DetailItem } from '../components/ui/SideSheet'
 import { inspections } from '../data/inspections'
+import type { Inspection } from '../data/types'
 import { formatDate, cn } from '../lib/utils'
 import { useIsMobile } from '../lib/useIsMobile'
-
 
 export default function Inspections() {
   const [search, setSearch] = useState('')
@@ -37,198 +43,248 @@ export default function Inspections() {
   const totalHighRisk = inspections.reduce((sum, i) => sum + i.highRiskCount, 0)
 
   const selectedData = inspections.find((i) => i.id === selectedInspection)
+  const hasFilters = search || typeFilter !== 'ALL' || statusFilter !== 'ALL' || riskFilter !== 'ALL' || dateFilter
+
+  const clearFilters = () => {
+    setSearch('')
+    setTypeFilter('ALL')
+    setStatusFilter('ALL')
+    setRiskFilter('ALL')
+    setDateFilter('')
+  }
 
   return (
     <div className="space-y-5">
+      <PageHeader title="Inspections" description="Field inspections, findings and AI verification across monitored mines." />
+
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPICard label="Total Inspections" value={inspections.length} icon={<ClipboardCheck className="w-4 h-4" />} />
-        <KPICard label="Completed" value={completed} subtitle="this month" variant="success" />
-        <KPICard label="In Progress / Scheduled" value={inProgress + scheduled} />
-        <KPICard label="High-Risk Findings" value={totalHighRisk} variant="danger" icon={<AlertTriangle className="w-4 h-4" />} />
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+        <KPICard label="Total Inspections" value={inspections.length} icon={<ClipboardCheck />} />
+        <KPICard label="Completed" value={completed} subtitle="this month" variant="success" icon={<CheckCircle2 />} />
+        <KPICard label="In Progress / Scheduled" value={inProgress + scheduled} icon={<CalendarClock />} />
+        <KPICard label="High-Risk Findings" value={totalHighRisk} variant="danger" icon={<AlertTriangle />} />
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-0 max-w-[360px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Search by mine, inspector, or ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-surface-raised border border-border rounded text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber/50"
-          />
+      <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+        <SearchInput value={search} onValueChange={setSearch} placeholder="Search by mine, inspector, or ID..." wrapperClassName="lg:w-80" />
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <Select aria-label="Inspection type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="sm:w-[150px]">
+            <option value="ALL">All Types</option>
+            <option value="ROUTINE">Routine</option>
+            <option value="SPECIAL">Special</option>
+            <option value="FOLLOW_UP">Follow-Up</option>
+            <option value="DGMS_DIRECTED">DGMS Directed</option>
+          </Select>
+          <Select aria-label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:w-[140px]">
+            <option value="ALL">All Statuses</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="SCHEDULED">Scheduled</option>
+          </Select>
+          <Select aria-label="Risk" value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="sm:w-[120px]">
+            <option value="ALL">All Risks</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </Select>
+          <Input type="date" aria-label="Inspection date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="sm:w-[150px]" />
         </div>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2 bg-surface-raised border border-border rounded text-[12px] text-text-secondary focus:outline-none">
-          <option value="ALL">All Types</option>
-          <option value="ROUTINE">Routine</option>
-          <option value="SPECIAL">Special</option>
-          <option value="FOLLOW_UP">Follow-Up</option>
-          <option value="DGMS_DIRECTED">DGMS Directed</option>
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 bg-surface-raised border border-border rounded text-[12px] text-text-secondary focus:outline-none">
-          <option value="ALL">All Statuses</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="SCHEDULED">Scheduled</option>
-        </select>
-        <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="px-3 py-2 bg-surface-raised border border-border rounded text-[12px] text-text-secondary focus:outline-none">
-          <option value="ALL">All Risks</option>
-          <option value="HIGH">High</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="LOW">Low</option>
-        </select>
-        <input 
-          type="date" 
-          value={dateFilter} 
-          onChange={(e) => setDateFilter(e.target.value)} 
-          className="px-3 py-2 bg-surface-raised border border-border rounded text-[12px] text-text-secondary focus:outline-none"
-        />
+        <div className="flex items-center justify-between gap-2 lg:ml-auto">
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          )}
+          <span className="text-[12px] text-text-muted kd-num">
+            {filtered.length} of {inspections.length}
+          </span>
+        </div>
       </div>
 
       {/* Table + Detail */}
-      <div className={cn("gap-4", isMobile ? "flex flex-col" : "flex")}>
-        <div className={cn("bg-surface-raised border border-border rounded overflow-hidden", selectedData && !isMobile ? 'flex-1' : 'w-full')}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
+      <div className="flex items-start gap-4">
+        <Card className="min-w-0 flex-1 overflow-hidden">
+          <div className="kd-table-wrap">
+            <table className="kd-table min-w-[780px] whitespace-nowrap">
               <thead>
-                <tr className="border-b border-border bg-mine-black/50">
-                  <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">ID</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Mine</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Inspector</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Risk</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Evidence</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Status</th>
+                <tr>
+                  <th scope="col">Date / Type</th>
+                  <th scope="col">Mine</th>
+                  <th scope="col">Inspector</th>
+                  <th scope="col">Findings</th>
+                  <th scope="col">Risk</th>
+                  <th scope="col" className="kd-cell-num">Evidence</th>
+                  <th scope="col">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody>
                 {filtered.map((insp) => (
                   <tr
                     key={insp.id}
+                    data-clickable="true"
+                    data-selected={selectedInspection === insp.id}
+                    tabIndex={0}
+                    aria-label={`${insp.id}: ${insp.mineCode} inspection on ${formatDate(insp.date)}`}
                     onClick={() => setSelectedInspection(selectedInspection === insp.id ? null : insp.id)}
-                    className={`cursor-pointer transition-colors ${selectedInspection === insp.id ? 'bg-amber-dim' : 'hover:bg-mine-black/50'}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setSelectedInspection(selectedInspection === insp.id ? null : insp.id)
+                    }}
                   >
-                    <td className="px-4 py-3 text-[12px] font-mono text-text-secondary">{insp.id}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-[12px] font-mono text-amber font-medium">{insp.mineCode}</span>
-                      <p className="text-[11px] text-text-muted">{insp.mineName}</p>
+                    <td title={insp.id}>
+                      <div className="font-medium text-text-primary kd-num">{formatDate(insp.date)}</div>
+                      <div className="text-[11px] text-text-muted">{insp.type.replace(/_/g, ' ')}</div>
                     </td>
-                    <td className="px-4 py-3 text-[12px] text-text-secondary">{insp.inspector}</td>
-                    <td className="px-4 py-3 text-[12px] text-text-secondary">{insp.type.replace(/_/g, ' ')}</td>
-                    <td className="px-4 py-3 text-[12px] font-mono text-text-primary">{formatDate(insp.date)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={insp.riskLevel} /></td>
-                    <td className="px-4 py-3 text-[12px] font-mono text-text-primary">{insp.evidenceCount || 0}</td>
-                    <td className="px-4 py-3"><StatusBadge status={insp.status} /></td>
+                    <td>
+                      <div className="font-mono text-[12px] font-semibold text-amber">{insp.mineCode}</div>
+                      <div className="max-w-[170px] truncate text-[11px] text-text-muted">{insp.mineName}</div>
+                    </td>
+                    <td>
+                      <div className="text-text-primary">{insp.inspector}</div>
+                      <div className="max-w-[170px] truncate text-[11px] text-text-muted">{insp.inspectorDesignation}</div>
+                    </td>
+                    <td className="kd-num">
+                      <span className="text-text-primary">{insp.observationsCount} obs.</span>
+                      {insp.highRiskCount > 0 && <span className="ml-1.5 font-medium text-danger">· {insp.highRiskCount} high</span>}
+                    </td>
+                    <td>
+                      <StatusBadge status={insp.riskLevel} />
+                    </td>
+                    <td className="kd-cell-num text-text-primary">{insp.evidenceCount || 0}</td>
+                    <td>
+                      <StatusBadge status={insp.status} hideDot />
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            {filtered.length === 0 && (
+              <EmptyState compact icon={SearchX} title="No inspections found" description="No inspections match the selected filters." actionLabel="Clear filters" onAction={clearFilters} />
+            )}
           </div>
-        </div>
+        </Card>
 
-        {selectedData && (
-          <div className={cn(
-            isMobile
-              ? "fixed inset-0 z-50 bg-surface-raised overflow-y-auto p-4"
-              : "w-[380px] flex-shrink-0 bg-surface-raised border border-border rounded p-5 self-start sticky top-0"
-          )}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-heading text-[15px] font-bold text-text-primary tracking-wide">INSPECTION DETAIL</h3>
-              <button onClick={() => setSelectedInspection(null)} className="text-text-muted hover:text-text-secondary p-1" aria-label="Close">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto pr-2 custom-scrollbar">
-              <div className="grid grid-cols-2 gap-3">
-                <DetailRow label="ID" value={selectedData.id} mono />
-                <DetailRow label="Mine" value={`${selectedData.mineCode} — ${selectedData.mineName}`} />
-                <DetailRow label="Date" value={formatDate(selectedData.date)} mono />
-                <DetailRow label="Inspector" value={selectedData.inspector} />
-                <DetailRow label="Designation" value={selectedData.inspectorDesignation} />
-                <DetailRow label="Type" value={selectedData.type.replace(/_/g, ' ')} />
+        {selectedData && !isMobile && (
+          <Card className="sticky top-0 w-[380px] shrink-0 overflow-hidden animate-fade-in">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+              <div className="min-w-0">
+                <div className="kd-overline">Inspection detail</div>
+                <h3 className="mt-0.5 text-[15px] font-semibold text-text-primary">
+                  {selectedData.mineCode} · {selectedData.type.replace(/_/g, ' ')}
+                </h3>
               </div>
-              <div className="flex gap-2">
-                <StatusBadge status={selectedData.status} size="md" />
-                <StatusBadge status={selectedData.riskLevel} size="md" />
-              </div>
-
-              {selectedData.checklist && (
-                <div className="pt-3 border-t border-border">
-                  <span className="text-[10px] text-text-muted uppercase tracking-wider mb-2 block">Checklist</span>
-                  <div className="space-y-1.5">
-                    {selectedData.checklist.map((item, idx) => (
-                      <div key={idx} className="flex items-start justify-between gap-2 text-[12px]">
-                        <span className="text-text-secondary">{item.item}</span>
-                        <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded ${item.status === 'PASS' ? 'bg-green-dim text-green-light' : 'bg-red-dim text-red-light'}`}>{item.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedData.observationsList ? (
-                <div className="pt-3 border-t border-border">
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-[10px] text-text-muted uppercase tracking-wider">Observations ({selectedData.observationsCount})</span>
-                  </div>
-                  <div className="space-y-2">
-                    {selectedData.observationsList.map((obs, idx) => (
-                      <div key={idx} className="bg-mine-black p-2 rounded flex justify-between items-center">
-                        <span className="text-[12px] text-text-primary">{obs.title}</span>
-                        <StatusBadge status={obs.risk} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="pt-3 border-t border-border">
-                  <span className="text-[10px] text-text-muted uppercase tracking-wider">Findings</span>
-                  <p className="text-[12px] text-text-secondary mt-1 leading-relaxed">{selectedData.findings}</p>
-                </div>
-              )}
-
-              {selectedData.aiVerification && (
-                <div className="pt-3 border-t border-border">
-                  <span className="text-[10px] text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-                    <Brain className="w-3 h-3 text-amber" /> AI Verification
-                  </span>
-                  <p className="text-[12px] text-text-secondary leading-relaxed">{selectedData.aiVerification}</p>
-                </div>
-              )}
-
-              {selectedData.evidenceCount !== undefined && (
-                <div className="pt-3 border-t border-border">
-                  <span className="text-[10px] text-text-muted uppercase tracking-wider mb-2 block">Evidence Attached</span>
-                  <p className="text-[12px] font-mono text-text-primary">{selectedData.evidenceCount} files</p>
-                </div>
-              )}
-
-              {selectedData.applicableObligations && (
-                <div className="pt-3 border-t border-border">
-                  <span className="text-[10px] text-text-muted uppercase tracking-wider mb-2 block">Applicable Obligations</span>
-                  <ul className="list-disc list-inside space-y-1">
-                    {selectedData.applicableObligations.map((ob, idx) => (
-                      <li key={idx} className="text-[12px] text-text-secondary">{ob}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <Button variant="ghost" size="icon-sm" onClick={() => setSelectedInspection(null)} aria-label="Close inspection detail" className="-mr-1.5">
+                <X />
+              </Button>
             </div>
-          </div>
+            <div className="max-h-[calc(100dvh-220px)] overflow-y-auto p-4">
+              <InspectionDetail data={selectedData} />
+            </div>
+          </Card>
         )}
       </div>
+
+      {isMobile && (
+        <SideSheet
+          open={!!selectedData}
+          onClose={() => setSelectedInspection(null)}
+          eyebrow="Inspection detail"
+          title={selectedData ? `${selectedData.mineCode} · ${selectedData.type.replace(/_/g, ' ')}` : ''}
+        >
+          {selectedData && (
+            <div className="p-5">
+              <InspectionDetail data={selectedData} />
+            </div>
+          )}
+        </SideSheet>
+      )}
     </div>
   )
 }
 
-function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function InspectionDetail({ data }: { data: Inspection }) {
   return (
-    <div>
-      <span className="text-[10px] text-text-muted uppercase tracking-wider">{label}</span>
-      <p className={`text-[12px] text-text-primary mt-0.5 ${mono ? 'font-mono' : ''}`}>{value}</p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-2">
+        <StatusBadge status={data.status} size="md" hideDot />
+        <StatusBadge status={data.riskLevel} size="md" />
+      </div>
+
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <DetailItem label="ID">
+          <span className="font-mono text-[12px]">{data.id}</span>
+        </DetailItem>
+        <DetailItem label="Date">
+          <span className="kd-num">{formatDate(data.date)}</span>
+        </DetailItem>
+        <DetailItem label="Mine" className="col-span-2">
+          <span className="font-mono">{data.mineCode}</span> — {data.mineName}
+        </DetailItem>
+        <DetailItem label="Inspector">{data.inspector}</DetailItem>
+        <DetailItem label="Designation">{data.inspectorDesignation}</DetailItem>
+        <DetailItem label="Type">{data.type.replace(/_/g, ' ')}</DetailItem>
+        {data.evidenceCount !== undefined && (
+          <DetailItem label="Evidence Attached" icon={<Paperclip />}>
+            <span className="kd-num">{data.evidenceCount} files</span>
+          </DetailItem>
+        )}
+      </dl>
+
+      {data.checklist && (
+        <SheetSection title="Checklist">
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {data.checklist.map((item) => (
+              <li key={item.item} className="flex items-start justify-between gap-3 px-3 py-2 text-[12px]">
+                <span className="flex items-start gap-2 text-text-secondary">
+                  {item.status === 'PASS' ? (
+                    <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0 text-success" />
+                  ) : (
+                    <XCircle className="mt-px h-3.5 w-3.5 shrink-0 text-danger" />
+                  )}
+                  {item.item}
+                </span>
+                <StatusBadge status={item.status} hideDot />
+              </li>
+            ))}
+          </ul>
+        </SheetSection>
+      )}
+
+      {data.observationsList ? (
+        <SheetSection title={`Observations (${data.observationsCount})`}>
+          <ul className="space-y-1.5">
+            {data.observationsList.map((obs) => (
+              <li key={obs.title} className="flex items-center justify-between gap-3 rounded-md border border-border bg-inset px-3 py-2">
+                <span className="text-[12px] text-text-primary">{obs.title}</span>
+                <StatusBadge status={obs.risk} />
+              </li>
+            ))}
+          </ul>
+        </SheetSection>
+      ) : (
+        <SheetSection title="Findings">
+          <p className="text-[13px] leading-5 text-text-secondary">{data.findings}</p>
+        </SheetSection>
+      )}
+
+      {data.aiVerification && (
+        <SheetSection title="AI Verification" icon={<Brain />}>
+          <p className="rounded-md border border-info/25 bg-info-soft px-3 py-2.5 text-[12px] leading-[18px] text-text-primary">{data.aiVerification}</p>
+        </SheetSection>
+      )}
+
+      {data.applicableObligations && (
+        <SheetSection title="Applicable Obligations" icon={<Scale />}>
+          <ul className="space-y-1.5">
+            {data.applicableObligations.map((ob) => (
+              <li key={ob} className={cn('flex items-start gap-2 text-[12px] text-text-secondary')}>
+                <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-muted" aria-hidden="true" />
+                {ob}
+              </li>
+            ))}
+          </ul>
+        </SheetSection>
+      )}
     </div>
   )
 }

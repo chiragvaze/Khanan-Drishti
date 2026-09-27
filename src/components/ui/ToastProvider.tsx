@@ -26,6 +26,13 @@ export function useToast() {
   return context
 }
 
+const toastStyle: Record<ToastType, { Icon: typeof Info; icon: string; rail: string }> = {
+  success: { Icon: CheckCircle2, icon: 'text-success', rail: 'bg-success-solid' },
+  error: { Icon: AlertCircle, icon: 'text-danger', rail: 'bg-danger-solid' },
+  warning: { Icon: AlertTriangle, icon: 'text-warning', rail: 'bg-warning-solid' },
+  info: { Icon: Info, icon: 'text-info', rail: 'bg-info-solid' },
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -33,63 +40,57 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  const addToast = useCallback((options: Omit<Toast, 'id'>) => {
-    const id = Math.random().toString(36).substring(2, 9)
-    const newToast = { ...options, id, type: options.type || 'info', duration: options.duration || 5000 }
-    
-    setToasts((prev) => [...prev, newToast])
+  const addToast = useCallback(
+    (options: Omit<Toast, 'id'>) => {
+      const id = Math.random().toString(36).substring(2, 9)
+      const newToast = { ...options, id, type: options.type || 'info', duration: options.duration || 5000 }
 
-    if (newToast.duration !== Infinity) {
-      setTimeout(() => {
-        removeToast(id)
-      }, newToast.duration)
-    }
-  }, [removeToast])
+      setToasts((prev) => [...prev, newToast])
+
+      if (newToast.duration !== Infinity) {
+        setTimeout(() => {
+          removeToast(id)
+        }, newToast.duration)
+      }
+    },
+    [removeToast]
+  )
 
   return (
     <ToastContext.Provider value={{ toast: addToast }}>
       {children}
-      
+
       {/* Toast Container */}
-      <div className="fixed bottom-0 right-0 z-50 p-4 space-y-4 w-full max-w-sm pointer-events-none">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={cn(
-              "pointer-events-auto w-full rounded-lg shadow-lg border p-4 flex items-start gap-3 transition-all animate-in slide-in-from-right-full",
-              toast.type === 'success' && "bg-surface-raised border-green/30",
-              toast.type === 'error' && "bg-surface-raised border-red/30",
-              toast.type === 'warning' && "bg-surface-raised border-amber/30",
-              toast.type === 'info' && "bg-surface-raised border-blue-400/30",
-            )}
-          >
-            <div className="flex-shrink-0 mt-0.5">
-              {toast.type === 'success' && <CheckCircle2 className="h-5 w-5 text-green" />}
-              {toast.type === 'error' && <AlertCircle className="h-5 w-5 text-red" />}
-              {toast.type === 'warning' && <AlertTriangle className="h-5 w-5 text-amber" />}
-              {toast.type === 'info' && <Info className="h-5 w-5 text-blue-400" />}
-            </div>
-            
-            <div className="flex-1 w-0">
-              <p className="text-sm font-medium text-text-primary">
-                {toast.title}
-              </p>
-              {toast.description && (
-                <p className="mt-1 text-sm text-text-secondary">
-                  {toast.description}
-                </p>
-              )}
-            </div>
-            
-            <button
-              onClick={() => removeToast(toast.id)}
-              className="flex-shrink-0 ml-4 inline-flex text-text-muted hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-amber rounded"
+      <div
+        aria-live="polite"
+        aria-relevant="additions"
+        className="pointer-events-none fixed bottom-10 right-0 z-[80] flex w-full max-w-sm flex-col gap-2 p-4 sm:bottom-8"
+      >
+        {toasts.map((toast) => {
+          const style = toastStyle[toast.type || 'info']
+          return (
+            <div
+              key={toast.id}
+              role={toast.type === 'error' ? 'alert' : 'status'}
+              className="pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden rounded-lg border border-border bg-surface-raised py-3 pl-4 pr-3 shadow-pop animate-pop-in"
             >
-              <span className="sr-only">Close</span>
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
+              <span aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-[3px]', style.rail)} />
+              <style.Icon className={cn('mt-0.5 h-4 w-4 shrink-0', style.icon)} aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-text-primary">{toast.title}</p>
+                {toast.description && <p className="mt-0.5 text-[12px] text-text-secondary">{toast.description}</p>}
+              </div>
+              <button
+                type="button"
+                onClick={() => removeToast(toast.id)}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-2 hover:text-text-primary"
+                aria-label="Dismiss notification"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )
+        })}
       </div>
     </ToastContext.Provider>
   )

@@ -1,19 +1,33 @@
 import React from 'react'
-import { AlertCircle, Inbox, Loader2 } from 'lucide-react'
+import { AlertCircle, Inbox } from 'lucide-react'
 import { Button } from './Button'
 import { cn } from '../../lib/utils'
 
-// Loading State
+// Skeleton — a shimmering placeholder shaped like the content it replaces
+export function Skeleton({ className }: { className?: string }) {
+  return <div aria-hidden="true" className={cn('kd-skeleton h-4', className)} />
+}
+
+// Loading State — skeleton rows that match a list/table layout
 export interface LoadingStateProps {
   message?: string
+  rows?: number
   className?: string
 }
 
-export function LoadingState({ message = 'Loading...', className }: LoadingStateProps) {
+export function LoadingState({ message = 'Loading…', rows = 4, className }: LoadingStateProps) {
   return (
-    <div className={cn("flex flex-col items-center justify-center p-12 text-text-secondary", className)}>
-      <Loader2 className="h-8 w-8 animate-spin text-amber mb-4" />
-      <p className="text-sm font-medium">{message}</p>
+    <div role="status" aria-live="polite" className={cn('space-y-3 p-4', className)}>
+      <span className="sr-only">{message}</span>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-2/5" />
+            <Skeleton className="h-3 w-4/5" />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -25,26 +39,28 @@ export interface EmptyStateProps {
   icon?: React.ElementType
   actionLabel?: string
   onAction?: () => void
+  compact?: boolean
   className?: string
 }
 
 export function EmptyState({
-  title = 'No Data Found',
+  title = 'No data found',
   description = 'There is no data available to display at this time.',
   icon: Icon = Inbox,
   actionLabel,
   onAction,
-  className
+  compact = false,
+  className,
 }: EmptyStateProps) {
   return (
-    <div className={cn("flex flex-col items-center justify-center p-12 text-center rounded-lg border border-dashed border-border bg-mine-black", className)}>
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-raised mb-4">
-        <Icon className="h-6 w-6 text-text-muted" />
+    <div className={cn('flex flex-col items-center justify-center text-center', compact ? 'px-4 py-8' : 'px-6 py-12', className)}>
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-inset">
+        <Icon className="h-5 w-5 text-text-muted" aria-hidden="true" />
       </div>
-      <h3 className="text-lg font-heading font-semibold text-text-primary mb-1">{title}</h3>
-      <p className="text-sm text-text-secondary max-w-sm mb-6">{description}</p>
+      <h3 className="text-[14px] font-semibold text-text-primary">{title}</h3>
+      {description && <p className="mt-1 max-w-sm text-[13px] text-text-secondary">{description}</p>}
       {actionLabel && onAction && (
-        <Button onClick={onAction} variant="outline">
+        <Button onClick={onAction} variant="secondary" size="sm" className="mt-4">
           {actionLabel}
         </Button>
       )}
@@ -61,21 +77,21 @@ export interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = 'Something went wrong',
-  message = 'An error occurred while loading this content. Please try again.',
+  title = 'Unable to load data',
+  message = 'Check your connection or try again.',
   onRetry,
-  className
+  className,
 }: ErrorStateProps) {
   return (
-    <div className={cn("flex flex-col items-center justify-center p-12 text-center rounded-lg border border-red/20 bg-mine-black", className)}>
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-dim mb-4">
-        <AlertCircle className="h-6 w-6 text-red" />
+    <div role="alert" className={cn('flex flex-col items-center justify-center px-6 py-12 text-center', className)}>
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-danger/25 bg-danger-soft">
+        <AlertCircle className="h-5 w-5 text-danger" aria-hidden="true" />
       </div>
-      <h3 className="text-lg font-heading font-semibold text-text-primary mb-1">{title}</h3>
-      <p className="text-sm text-text-secondary max-w-sm mb-6">{message}</p>
+      <h3 className="text-[14px] font-semibold text-text-primary">{title}</h3>
+      <p className="mt-1 max-w-sm text-[13px] text-text-secondary">{message}</p>
       {onRetry && (
-        <Button onClick={onRetry} variant="destructive">
-          Try Again
+        <Button onClick={onRetry} variant="secondary" size="sm" className="mt-4">
+          Retry
         </Button>
       )}
     </div>

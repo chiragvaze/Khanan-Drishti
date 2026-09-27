@@ -1,14 +1,38 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" style="color-scheme: dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo/ony_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Khanan Drishti — AI-based Smart Governance & Compliance Monitoring System for Indian Coal Mines" />
+    <meta name="theme-color" content="#0B1015" />
     <title>Khanan Drishti — Coal Mine Governance Dashboard</title>
+    <!--
+      Theme bootstrap: runs before any CSS/JS so the first paint already uses the
+      saved (or system) theme. Keep in sync with src/contexts/ThemeContext.tsx.
+    -->
+    <script>
+      (function () {
+        var theme = 'dark'
+        try {
+          var saved = localStorage.getItem('khanan-theme')
+          if (saved === 'light' || saved === 'dark') theme = saved
+          else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) theme = 'light'
+        } catch (e) {}
+        var root = document.documentElement
+        root.setAttribute('data-theme', theme)
+        root.style.colorScheme = theme
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#F4F6F8' : '#0B1015')
+      })()
+    </script>
+    <style>
+      html { background: #0B1015; }
+      html[data-theme='light'] { background: #F4F6F8; }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

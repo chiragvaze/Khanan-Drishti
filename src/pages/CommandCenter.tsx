@@ -6,28 +6,36 @@ import {
   ShieldAlert,
   Brain,
   ArrowRight,
-  Flame,
   FileDown,
   ListTodo,
   FileCheck,
   HardHat,
-  Database
+  Database,
+  Map as MapIcon,
+  Sparkles,
+  FileText,
+  ChevronRight,
 } from 'lucide-react'
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { KPICard } from '../components/shared/KPICard'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { PageHeader } from '../components/ui/PageHeader'
-import { Button } from '../components/ui/Button'
+import { Button, buttonVariants } from '../components/ui/Button'
+import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { useToast } from '../components/ui/ToastProvider'
 import { mines } from '../data/mines'
 import { riskAlerts } from '../data/risk-alerts'
 import { capas } from '../data/capas'
+import { inspections } from '../data/inspections'
+import type { Inspection } from '../data/types'
 import { useRole } from '../contexts/RoleContext'
 import DemoHighlight from '../components/shared/DemoHighlight'
+import { axisProps, chartColors, gridProps, tooltipCursor } from '../lib/chart'
+import { cn, complianceTone, formatDate, formatDateTime, toneFill, toneText } from '../lib/utils'
 
 // Data mocks
 const complianceTrend = [
@@ -39,264 +47,533 @@ const complianceTrend = [
   { month: 'Sep', score: 76 },
 ]
 const riskDistribution = [
-  { name: 'High', value: 3, color: '#C1292E' },
-  { name: 'Medium', value: 4, color: '#F0A202' },
-  { name: 'Low', value: 3, color: '#2E7D4F' },
+  { name: 'High', value: 3, color: chartColors.danger },
+  { name: 'Medium', value: 4, color: chartColors.warning },
+  { name: 'Low', value: 3, color: chartColors.success },
 ]
 const capaStatusData = [
-  { status: 'Open', count: 2, color: '#F0A202' },
-  { status: 'In Progress', count: 2, color: '#3B82F6' },
-  { status: 'Overdue', count: 1, color: '#C1292E' },
-  { status: 'Closed', count: 2, color: '#2E7D4F' },
+  { status: 'Open', count: 2, color: chartColors.warning },
+  { status: 'In Progress', count: 2, color: chartColors.info },
+  { status: 'Overdue', count: 1, color: chartColors.danger },
+  { status: 'Closed', count: 2, color: chartColors.success },
 ]
+
+const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export default function CommandCenter() {
   const { role } = useRole()
-  
+
   if (role === 'MINE_OFFICIAL') return <MineOfficialDashboard />
   if (role === 'REGULATORY_AUTHORITY') return <RegulatoryDashboard />
-  
+
   return <CorporateDashboard />
 }
 
+// ────────────────────────────────────────────────────────────
+// Corporate Management
+// ────────────────────────────────────────────────────────────
 function CorporateDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  const highRiskMines = mines.filter(m => m.riskLevel === 'HIGH')
-  const openCAPAs = capas.filter(c => c.status !== 'CLOSED')
-  const overdueCAPAs = capas.filter(c => c.status === 'OVERDUE')
+  const highRiskMines = mines.filter((m) => m.riskLevel === 'HIGH')
+  const openCAPAs = capas.filter((c) => c.status !== 'CLOSED')
+  const overdueCAPAs = capas.filter((c) => c.status === 'OVERDUE')
   const avgCompliance = Math.round(mines.reduce((sum, m) => sum + m.complianceScore, 0) / mines.length)
+  const riskTotal = riskDistribution.reduce((s, r) => s + r.value, 0)
+
+  const priorityCapas = [...openCAPAs]
+    .sort((a, b) => Number(b.status === 'OVERDUE') - Number(a.status === 'OVERDUE') || a.dueDate.localeCompare(b.dueDate))
+    .slice(0, 3)
 
   const handleExport = () => {
     toast({ title: 'Export Started', description: 'The dashboard report is being generated.', type: 'info' })
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader 
-        title="Corporate Command Center" 
-        description="Network-wide overview of mine safety and compliance."
-      >
-        <Button onClick={handleExport} variant="outline" size="sm">
-          <FileDown className="w-4 h-4 mr-2" />
-          Export Report
+    <div className="space-y-5">
+      <PageHeader eyebrow="Corporate management" title="Command Center" description="Network-wide overview of mine safety and compliance.">
+        <span className="hidden text-[12px] text-text-muted sm:inline">Data as of {today}</span>
+        <Button onClick={handleExport} variant="secondary">
+          <FileDown /> Export report
         </Button>
       </PageHeader>
 
-      {/* KPI Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard label="Mines Monitored" value={mines.length} subtitle="Active tracking" icon={<Factory className="w-4 h-4" />} trend="neutral" trendValue="Stable" />
-        <KPICard label="High Risk Mines" value={highRiskMines.length} subtitle="Require attention" icon={<AlertTriangle className="w-4 h-4" />} trend="up" trendValue="+1 this month" variant="danger" />
-        <KPICard label="Open CAPA" value={openCAPAs.length} subtitle={`${overdueCAPAs.length} overdue`} icon={<ClipboardCheck className="w-4 h-4" />} trend="down" trendValue="-2 this week" variant="warning" />
-        <KPICard label="Compliance Rate" value={`${avgCompliance}%`} subtitle="Network average" icon={<ShieldAlert className="w-4 h-4" />} trend="up" trendValue="+1.2% from Aug" variant="success" />
+      {/* KPI strip */}
+      <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 xl:grid-cols-4 xl:gap-4">
+        <KPICard label="Mines Monitored" value={mines.length} subtitle="Active tracking" icon={<Factory />} trend="neutral" trendValue="Stable" />
+        <KPICard label="High Risk Mines" value={highRiskMines.length} subtitle="Require attention" icon={<AlertTriangle />} trend="up" trendValue="+1 this month" trendPositive={false} variant="danger" />
+        <KPICard label="Open CAPA" value={openCAPAs.length} subtitle={`${overdueCAPAs.length} overdue`} icon={<ClipboardCheck />} trend="down" trendValue="-2 this week" trendPositive variant="warning" />
+        <KPICard label="Compliance Rate" value={`${avgCompliance}%`} subtitle="Network average" icon={<ShieldAlert />} trend="up" trendValue="+1.2% from Aug" trendPositive variant="success" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Risk Overview */}
-        <div className="lg:col-span-2 bg-surface-raised border border-border rounded-lg overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-border bg-mine-black/30">
-            <h3 className="text-[13px] font-heading font-semibold text-text-secondary tracking-wider">NETWORK RISK OVERVIEW</h3>
-          </div>
-          <div className="p-6 flex-1 border-b border-border min-h-[300px] flex flex-col justify-center relative bg-mine-black/20">
-            <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber/20 via-mine-black to-mine-black" />
-            <div className="relative w-full max-w-2xl mx-auto space-y-3 z-10">
-              <DemoHighlight step={1} tooltip="An inspection finding has increased the compliance risk of WCL-04.">
-                <div className="bg-red-dim border border-red/30 p-4 rounded-lg flex items-center justify-between cursor-pointer hover:bg-red/10 transition-colors shadow-lg shadow-red/5" onClick={() => navigate('/mines/mine-wcl-04')}>
-                  <div className="flex items-center gap-4">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red animate-pulse" />
-                    <div>
-                      <h4 className="text-[15px] font-medium text-text-primary font-mono tracking-wide">WCL-04 Wani Opencast</h4>
-                      <p className="text-[12px] text-red-light mt-0.5 font-medium">Critical Risk • 65% Compliance</p>
-                    </div>
-                  </div>
-                  <Button variant="destructive" size="sm">View Mine</Button>
+      {/* Row 2 — risk overview + compliance trend */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <Card className="xl:col-span-8">
+          <CardHeader
+            title="Network risk overview"
+            subtitle="Risk distribution and mines requiring attention"
+            icon={<ShieldAlert />}
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => navigate('/map')}>
+                <MapIcon /> <span className="hidden sm:inline">Open GIS map</span>
+              </Button>
+            }
+          />
+          <CardContent className="grid gap-5 md:grid-cols-[200px_1fr] md:gap-6">
+            {/* Distribution */}
+            <div className="flex items-center gap-4 md:flex-col md:items-stretch">
+              <div className="relative h-[132px] w-[132px] shrink-0 md:mx-auto">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={riskDistribution} cx="50%" cy="50%" innerRadius={46} outerRadius={64} paddingAngle={2} dataKey="value" stroke="none" isAnimationActive={false}>
+                      {riskDistribution.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[22px] font-semibold leading-none text-text-primary kd-num">{riskTotal}</span>
+                  <span className="mt-1 text-[11px] text-text-muted">mines</span>
                 </div>
-              </DemoHighlight>
-              <div className="bg-amber-dim border border-amber/30 p-4 rounded-lg flex items-center justify-between opacity-90 cursor-pointer hover:opacity-100 transition-opacity" onClick={() => navigate('/mines/mine-ncl-12')}>
-                <div className="flex items-center gap-4">
-                  <div className="w-2 h-2 rounded-full bg-amber" />
-                  <div>
-                    <h4 className="text-[14px] font-medium text-text-primary font-mono tracking-wide">NCL-12 Jayant Opencast</h4>
-                    <p className="text-[12px] text-amber-light mt-0.5">Medium Risk • 74% Compliance</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm">View Mine</Button>
+              </div>
+              <ul className="flex-1 space-y-1.5" aria-label="Risk distribution">
+                {riskDistribution.map((r) => (
+                  <li key={r.name} className="flex items-center justify-between gap-3 text-[13px]">
+                    <span className="flex items-center gap-2 text-text-secondary">
+                      <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: r.color }} aria-hidden="true" />
+                      {r.name} risk
+                    </span>
+                    <span className="font-semibold text-text-primary kd-num">
+                      {r.value}
+                      <span className="ml-1.5 font-normal text-text-muted">{Math.round((r.value / riskTotal) * 100)}%</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Watchlist */}
+            <div className="min-w-0">
+              <div className="kd-overline mb-2">Priority watchlist</div>
+              <div className="space-y-2">
+                <DemoHighlight step={1} tooltip="An inspection finding has increased the compliance risk of WCL-04.">
+                  <WatchlistRow
+                    tone="danger"
+                    code="WCL-04"
+                    name="Wani Opencast"
+                    detail="Critical Risk • 65% Compliance"
+                    status="HIGH"
+                    onOpen={() => navigate('/mines/mine-wcl-04')}
+                  />
+                </DemoHighlight>
+                <WatchlistRow
+                  tone="warning"
+                  code="NCL-12"
+                  name="Jayant Opencast"
+                  detail="Medium Risk • 74% Compliance"
+                  status="MEDIUM"
+                  onOpen={() => navigate('/mines/mine-ncl-12')}
+                />
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* AI Risk Alerts */}
-        <div className="lg:col-span-1 bg-surface-raised border border-border rounded-lg flex flex-col">
-          <div className="p-4 border-b border-border bg-red-dim/20">
-            <h3 className="text-[13px] font-heading font-semibold text-text-primary tracking-wider flex items-center gap-2">
-              <Flame className="w-4 h-4 text-amber animate-pulse" /> AI RISK ALERTS
-            </h3>
-          </div>
-          <div className="divide-y divide-border overflow-y-auto max-h-[300px]">
-            {riskAlerts.slice(0,4).map(alert => (
-              <div key={alert.id} className="p-4 hover:bg-mine-black/50 transition-colors cursor-pointer group" onClick={() => navigate('/ai-insights')}>
-                <div className="flex items-start gap-2 mb-1.5">
-                  <StatusBadge status={alert.severity} />
-                  <span className="text-[10px] text-text-muted font-mono mt-0.5">{alert.mineName}</span>
-                </div>
-                <p className="text-[13px] font-medium text-text-primary mb-1.5 group-hover:text-amber transition-colors">{alert.title}</p>
-                <p className="text-[11px] text-text-muted line-clamp-2 leading-relaxed">{alert.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Card className="flex flex-col xl:col-span-4">
+          <CardHeader title="Compliance trend" subtitle="Network average · last 6 months" />
+          <CardContent className="flex flex-1 flex-col">
+            <div className="flex items-baseline gap-2">
+              <span className="text-[24px] font-semibold text-text-primary kd-num">{complianceTrend[complianceTrend.length - 1].score}%</span>
+              <span className="text-[12px] text-text-muted">September</span>
+            </div>
+            <div className="mt-2 min-h-[160px] flex-1">
+              <ResponsiveContainer width="100%" height="100%" minHeight={160}>
+                <AreaChart data={complianceTrend} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="kd-trend-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartColors.accent} stopOpacity={0.22} />
+                      <stop offset="100%" stopColor={chartColors.accent} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid {...gridProps} />
+                  <XAxis dataKey="month" {...axisProps} />
+                  <YAxis domain={[60, 100]} ticks={[60, 70, 80, 90, 100]} {...axisProps} />
+                  <Tooltip cursor={{ stroke: chartColors.grid }} formatter={(v) => [`${v}%`, 'Compliance']} />
+                  <Area type="monotone" dataKey="score" stroke={chartColors.accent} strokeWidth={2} fill="url(#kd-trend-fill)" dot={{ r: 3, fill: chartColors.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Analytics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-surface-raised border border-border rounded p-4">
-          <h3 className="font-heading text-[13px] font-semibold text-text-secondary tracking-wider mb-3">COMPLIANCE TREND</h3>
-          <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={complianceTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#808f9f' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[60, 100]} tick={{ fontSize: 11, fill: '#808f9f' }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#1C2530', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, fontSize: 12 }} labelStyle={{ color: '#EDE6DA' }} />
-              <Line type="monotone" dataKey="score" stroke="#F0A202" strokeWidth={2} dot={{ r: 4, fill: '#F0A202', strokeWidth: 0 }} activeDot={{ r: 6 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="bg-surface-raised border border-border rounded p-4">
-          <h3 className="font-heading text-[13px] font-semibold text-text-secondary tracking-wider mb-3">CAPA STATUS</h3>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={capaStatusData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="status" tick={{ fontSize: 10, fill: '#808f9f' }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#808f9f' }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#1C2530', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, fontSize: 12 }} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
-              <Bar dataKey="count" radius={[2, 2, 0, 0]} maxBarSize={40}>
-                {capaStatusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="bg-surface-raised border border-border rounded p-4">
-          <h3 className="font-heading text-[13px] font-semibold text-text-secondary tracking-wider mb-3">RISK DISTRIBUTION</h3>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={riskDistribution} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" stroke="none">
-                {riskDistribution.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#1C2530', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, fontSize: 12 }} />
-              <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Row 3 — AI alerts + CAPA / priority actions */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <Card className="xl:col-span-7">
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                AI risk alerts
+                <span className="rounded-full bg-danger-soft px-1.5 text-[11px] font-semibold text-danger kd-num">{riskAlerts.slice(0, 4).length}</span>
+              </span>
+            }
+            subtitle="Predictions and escalations requiring review"
+            icon={<Sparkles />}
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => navigate('/ai-insights')}>
+                View insights <ArrowRight />
+              </Button>
+            }
+          />
+          <ul className="divide-y divide-border">
+            {riskAlerts.slice(0, 4).map((alert) => (
+              <li key={alert.id}>
+                <button
+                  type="button"
+                  onClick={() => navigate('/ai-insights')}
+                  className="group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+                >
+                  <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', alert.severity === 'HIGH' ? 'bg-danger-solid' : 'bg-warning-solid')} aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <StatusBadge status={alert.severity} hideDot />
+                      <span className="text-[12px] text-text-muted">{alert.mineName}</span>
+                      <span className="text-[12px] text-text-disabled" aria-hidden="true">·</span>
+                      <span className="text-[12px] text-text-muted">{alert.category}</span>
+                    </span>
+                    <span className="mt-1 block text-[13px] font-semibold leading-5 text-text-primary group-hover:text-amber">{alert.title}</span>
+                    <span className="mt-0.5 line-clamp-2 block text-[12px] leading-[18px] text-text-secondary">{alert.description}</span>
+                  </span>
+                  <span className="hidden shrink-0 text-[11px] text-text-muted kd-num sm:block">{formatDateTime(alert.timestamp)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card className="flex flex-col xl:col-span-5">
+          <CardHeader
+            title="CAPA status"
+            subtitle="Corrective actions across all mines"
+            icon={<ClipboardCheck />}
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => navigate('/capa')}>
+                Open CAPA <ArrowRight />
+              </Button>
+            }
+          />
+          <CardContent className="pb-2">
+            <div className="h-[150px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={capaStatusData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                  <CartesianGrid {...gridProps} />
+                  <XAxis dataKey="status" {...axisProps} interval={0} />
+                  <YAxis allowDecimals={false} {...axisProps} />
+                  <Tooltip cursor={tooltipCursor} formatter={(v) => [v, 'CAPAs']} />
+                  <Bar dataKey="count" radius={[3, 3, 0, 0]} maxBarSize={36}>
+                    {capaStatusData.map((entry) => (
+                      <Cell key={entry.status} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+          <div className="border-t border-border px-4 pb-3 pt-3">
+            <div className="kd-overline mb-2 flex items-center gap-1.5">
+              <ListTodo className="h-3.5 w-3.5" /> Priority actions
+            </div>
+            <ul className="space-y-1">
+              {priorityCapas.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/capa')}
+                    className="group flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-2"
+                  >
+                    <StatusBadge status={c.status} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] text-text-primary">{c.title}</span>
+                      <span className="block truncate text-[11px] text-text-muted">
+                        {c.mineName} · Due {formatDate(c.dueDate)}
+                      </span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-text-disabled group-hover:text-text-secondary" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Card>
+      </div>
+
+      {/* Row 4 — recent inspections + mine status */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <RecentInspectionsCard className="xl:col-span-7" />
+
+        <Card className="xl:col-span-5">
+          <CardHeader
+            title="Mine status"
+            subtitle="Lowest compliance first"
+            icon={<Factory />}
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => navigate('/mines')}>
+                All mines <ArrowRight />
+              </Button>
+            }
+          />
+          <ul className="divide-y divide-border">
+            {[...mines]
+              .sort((a, b) => a.complianceScore - b.complianceScore)
+              .slice(0, 6)
+              .map((m) => {
+                const tone = complianceTone(m.complianceScore)
+                return (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/mines/${m.id}`)}
+                      className="group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-2"
+                    >
+                      <span className="w-[72px] shrink-0 font-mono text-[12px] font-medium text-text-primary">{m.code}</span>
+                      <span className="hidden min-w-0 flex-1 truncate text-[12px] text-text-secondary sm:block">{m.name}</span>
+                      <span className="flex w-[112px] shrink-0 items-center gap-2 sm:w-[120px]">
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-chart-track">
+                          <span className={cn('block h-full rounded-full', toneFill[tone])} style={{ width: `${m.complianceScore}%` }} />
+                        </span>
+                        <span className={cn('w-9 text-right text-[12px] font-semibold kd-num', toneText[tone])}>{m.complianceScore}%</span>
+                      </span>
+                      <span className="ml-auto sm:ml-0">
+                        <StatusBadge status={m.riskLevel} />
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+          </ul>
+        </Card>
       </div>
     </div>
   )
 }
 
+function WatchlistRow({
+  tone,
+  code,
+  name,
+  detail,
+  status,
+  onOpen,
+}: {
+  tone: 'danger' | 'warning'
+  code: string
+  name: string
+  detail: string
+  status: string
+  onOpen: () => void
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`View mine ${code} — ${detail}`}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      className="group relative flex items-center gap-3 overflow-hidden rounded-lg border border-border bg-surface-2 py-3 pl-4 pr-3 transition-colors hover:border-border-strong"
+    >
+      <span aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-[3px]', tone === 'danger' ? 'bg-danger-solid' : 'bg-warning-solid')} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-mono text-[13px] font-semibold text-text-primary">{code}</span>
+          <span className="truncate text-[13px] text-text-secondary">{name}</span>
+        </div>
+        <p className={cn('mt-0.5 text-[12px] font-medium', tone === 'danger' ? 'text-danger' : 'text-warning')}>{detail}</p>
+      </div>
+      <StatusBadge status={status} className="hidden sm:inline-flex" />
+      <span aria-hidden="true" className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'shrink-0')}>
+        View mine
+      </span>
+    </div>
+  )
+}
+
+function RecentInspectionsCard({ className, mineId, title = 'Recent inspections' }: { className?: string; mineId?: string; title?: string }) {
+  const navigate = useNavigate()
+  const rows = [...inspections]
+    .filter((i) => !mineId || i.mineId === mineId)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5)
+
+  return (
+    <Card className={cn('overflow-hidden', className)}>
+      <CardHeader
+        title={title}
+        subtitle="Latest field inspections and their risk outcome"
+        icon={<FileCheck />}
+        actions={
+          <Button variant="ghost" size="sm" onClick={() => navigate('/inspections')}>
+            All inspections <ArrowRight />
+          </Button>
+        }
+      />
+      <DataTable<Inspection>
+        data={rows}
+        getRowKey={(r) => r.id}
+        onRowClick={() => navigate('/inspections')}
+        columns={[
+          { header: 'Date', cell: (r) => <span className="whitespace-nowrap text-text-primary kd-num">{formatDate(r.date)}</span> },
+          {
+            header: 'Mine',
+            cell: (r) => (
+              <div className="min-w-0">
+                <div className="font-mono text-[12px] font-medium text-text-primary">{r.mineCode}</div>
+                <div className="max-w-[180px] truncate text-[11px] text-text-muted">{r.mineName}</div>
+              </div>
+            ),
+          },
+          { header: 'Inspector', cell: (r) => <span className="whitespace-nowrap">{r.inspector}</span>, className: 'hidden md:table-cell' },
+          { header: 'Risk', cell: (r) => <StatusBadge status={r.riskLevel} /> },
+          { header: 'Status', cell: (r) => <StatusBadge status={r.status} hideDot />, className: 'hidden sm:table-cell' },
+        ]}
+      />
+    </Card>
+  )
+}
+
+// ────────────────────────────────────────────────────────────
+// Mine Official
+// ────────────────────────────────────────────────────────────
 function MineOfficialDashboard() {
   const navigate = useNavigate()
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader 
-        title="Mine Operations Center: WCL-04" 
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Mine official · WCL-04"
+        title="Mine Operations Center: WCL-04"
         description="Daily operational tracking and compliance execution for Wani Opencast Extension."
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard label="My Compliance Score" value="65%" subtitle="Below target (75%)" icon={<ShieldAlert className="w-4 h-4" />} trend="down" trendValue="-2% this month" variant="danger" />
-        <KPICard label="Open Observations" value={4} subtitle="From recent inspection" icon={<AlertTriangle className="w-4 h-4" />} variant="warning" />
-        <KPICard label="My CAPA Pending" value={2} subtitle="1 Overdue" icon={<ClipboardCheck className="w-4 h-4" />} variant="danger" />
-        <KPICard label="Active Contractors" value={3} subtitle="1 expiring soon" icon={<HardHat className="w-4 h-4" />} />
+      <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 xl:grid-cols-4 xl:gap-4">
+        <KPICard label="My Compliance Score" value="65%" subtitle="Below target (75%)" icon={<ShieldAlert />} trend="down" trendValue="-2% this month" trendPositive={false} variant="danger" />
+        <KPICard label="Open Observations" value={4} subtitle="From recent inspection" icon={<AlertTriangle />} variant="warning" />
+        <KPICard label="My CAPA Pending" value={2} subtitle="1 Overdue" icon={<ClipboardCheck />} variant="danger" />
+        <KPICard label="Active Contractors" value={3} subtitle="1 expiring soon" icon={<HardHat />} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         {/* Priority Actions */}
-        <div className="bg-surface-raised border border-border rounded-lg">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="font-heading text-[13px] font-semibold text-text-secondary tracking-wider flex items-center gap-2">
-              <ListTodo className="w-4 h-4 text-amber" /> MY PENDING ACTIONS
-            </h3>
-          </div>
-          <div className="divide-y divide-border">
-            <div className="p-4 hover:bg-mine-black/50 cursor-pointer flex items-center justify-between group" onClick={() => navigate('/capa')}>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-red-dim border border-red/20 flex items-center justify-center text-red font-bold text-lg shadow-inner">!</div>
-                <div>
-                  <p className="text-[14px] font-medium text-text-primary">Resolve Overdue Ventilation CAPA</p>
-                  <p className="text-[12px] text-text-muted mt-0.5">Submit evidence of ducting repair (Due: 3 days ago)</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-amber transition-colors" />
-            </div>
-            <div className="p-4 hover:bg-mine-black/50 cursor-pointer flex items-center justify-between group" onClick={() => navigate('/evidence')}>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-amber-dim border border-amber/20 flex items-center justify-center text-amber font-bold text-lg shadow-inner">2</div>
-                <div>
-                  <p className="text-[14px] font-medium text-text-primary">Verify Inspection Evidence</p>
-                  <p className="text-[12px] text-text-muted mt-0.5">Validate KD-E102 and KD-E103</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-amber transition-colors" />
-            </div>
-          </div>
-        </div>
+        <Card className="xl:col-span-7">
+          <CardHeader title="My pending actions" subtitle="Items assigned to you, most urgent first" icon={<ListTodo />} />
+          <ul className="divide-y divide-border">
+            <li>
+              <button type="button" onClick={() => navigate('/capa')} className="group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-surface-2">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-danger/25 bg-danger-soft text-danger">
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-[14px] font-semibold text-text-primary">Resolve Overdue Ventilation CAPA</span>
+                    <StatusBadge status="OVERDUE" />
+                  </span>
+                  <span className="mt-0.5 block text-[12px] text-text-secondary">Submit evidence of ducting repair (Due: 3 days ago)</span>
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-text-disabled transition-colors group-hover:text-amber" />
+              </button>
+            </li>
+            <li>
+              <button type="button" onClick={() => navigate('/evidence')} className="group flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-surface-2">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-warning/25 bg-warning-soft text-[15px] font-semibold text-warning kd-num">2</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-semibold text-text-primary">Verify Inspection Evidence</span>
+                  <span className="mt-0.5 block text-[12px] text-text-secondary">Validate KD-E102 and KD-E103</span>
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-text-disabled transition-colors group-hover:text-amber" />
+              </button>
+            </li>
+          </ul>
+        </Card>
 
         {/* AI Insight */}
-        <div className="bg-surface-raised border border-border rounded-lg relative overflow-hidden flex flex-col">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-red/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-          <div className="px-4 py-3 border-b border-border relative z-10 bg-mine-black/40">
-            <h3 className="font-heading text-[13px] font-semibold text-text-secondary tracking-wider flex items-center gap-2">
-              <Brain className="w-4 h-4 text-red-light" /> MINE AI PREDICTION
-            </h3>
-          </div>
-          <div className="p-6 relative z-10 flex-1 flex flex-col justify-center">
-            <p className="text-[16px] leading-relaxed text-text-primary mb-6 font-medium tracking-wide">
-              "Ventilation failure risk is <strong className="text-red-light">CRITICAL</strong>. Methane levels will likely exceed 1.25% threshold within 18 hours if ducting remains unrepaired."
+        <Card className="flex flex-col xl:col-span-5">
+          <CardHeader title="Mine AI prediction" subtitle="Generated from telemetry and inspection evidence" icon={<Brain />} actions={<StatusBadge status="CRITICAL" />} />
+          <CardContent className="flex flex-1 flex-col justify-between gap-5">
+            <p className="text-[15px] leading-6 text-text-primary">
+              “Ventilation failure risk is <strong className="font-semibold text-danger">CRITICAL</strong>. Methane levels will likely exceed 1.25% threshold within 18 hours if
+              ducting remains unrepaired.”
             </p>
-            <div className="flex flex-wrap items-center gap-5 text-[12px] bg-mine-black/50 p-4 rounded-md border border-border/50">
-              <div className="flex items-center gap-2">
-                <span className="text-text-muted">Recommendation:</span>
-                <span className="text-amber font-medium">Immediate Panel 3B Evacuation</span>
-              </div>
+            <div className="rounded-lg border border-border bg-inset px-4 py-3">
+              <div className="kd-overline">Recommendation</div>
+              <div className="mt-0.5 text-[13px] font-semibold text-amber">Immediate Panel 3B Evacuation</div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <RecentInspectionsCard mineId="mine-wcl-04" title="Recent inspections — WCL-04" />
     </div>
   )
 }
 
+// ────────────────────────────────────────────────────────────
+// Regulatory Authority
+// ────────────────────────────────────────────────────────────
+type WatchRow = { id: string; mineCode: string; score: number; riskLevel: 'HIGH' | 'MEDIUM' | 'LOW'; lastInspection: string }
+
 function RegulatoryDashboard() {
   const navigate = useNavigate()
 
+  const reports = [
+    { title: 'WCL-04 Monthly Compliance', meta: 'Submitted: 2026-09-20', pending: false },
+    { title: 'Q3 Inspection Summary - SECL', meta: 'Submitted: 2026-09-15', pending: false },
+    { title: 'DGMS Annual Return (Pending)', meta: 'Due: 2026-09-30', pending: true },
+  ]
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader 
-        title="Regulatory Oversight Dashboard" 
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Regulatory authority · DGMS"
+        title="Regulatory Oversight Dashboard"
         description="National compliance, statutory reporting, and inspection oversight for DGMS."
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard label="Mines Under Watch" value={8} subtitle="Targeted monitoring" icon={<Database className="w-4 h-4" />} trend="up" trendValue="High priority" variant="danger" />
-        <KPICard label="Inspections Planned" value={14} subtitle="This quarter" icon={<ClipboardCheck className="w-4 h-4" />} />
-        <KPICard label="Statutory Returns" value={1} subtitle="Overdue across network" icon={<FileCheck className="w-4 h-4" />} variant="warning" />
-        <KPICard label="Avg. Compliance" value="76%" subtitle="National baseline" icon={<ShieldAlert className="w-4 h-4" />} trend="neutral" trendValue="Stable" />
+      <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 xl:grid-cols-4 xl:gap-4">
+        <KPICard label="Mines Under Watch" value={8} subtitle="Targeted monitoring" icon={<Database />} trend="up" trendValue="High priority" trendPositive={false} variant="danger" />
+        <KPICard label="Inspections Planned" value={14} subtitle="This quarter" icon={<ClipboardCheck />} />
+        <KPICard label="Statutory Returns" value={1} subtitle="Overdue across network" icon={<FileCheck />} variant="warning" />
+        <KPICard label="Avg. Compliance" value="76%" subtitle="National baseline" icon={<ShieldAlert />} trend="neutral" trendValue="Stable" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-surface-raised border border-border rounded-lg overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-border bg-mine-black/30 flex justify-between items-center">
-            <h3 className="text-[13px] font-heading font-semibold text-text-secondary tracking-wider">COMPLIANCE WATCHLIST</h3>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/compliance')}>View All</Button>
-          </div>
-          <DataTable
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <Card className="overflow-hidden xl:col-span-8">
+          <CardHeader
+            title="Compliance watchlist"
+            subtitle="Mines below the national compliance baseline"
+            icon={<ShieldAlert />}
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => navigate('/compliance')}>
+                View all <ArrowRight />
+              </Button>
+            }
+          />
+          <DataTable<WatchRow>
+            getRowKey={(r) => r.id}
             columns={[
-              { header: 'Mine', accessorKey: 'mineCode', cell: (val) => <span className="font-bold font-mono">{String(val.mineCode)}</span> },
-              { header: 'Compliance Score', accessorKey: 'score', cell: (val) => <span className={Number(val.score) < 70 ? 'text-red' : 'text-amber'}>{String(val.score)}%</span> },
-              { header: 'Risk Status', accessorKey: 'riskLevel', cell: (val) => <StatusBadge status={val.riskLevel as 'HIGH' | 'MEDIUM' | 'LOW'} /> },
-              { header: 'Last Inspection', accessorKey: 'lastInspection' },
+              { header: 'Mine', cell: (val) => <span className="font-mono text-[13px] font-semibold text-text-primary">{val.mineCode}</span> },
+              {
+                header: 'Compliance Score',
+                cell: (val) => <span className={cn('font-semibold kd-num', val.score < 70 ? 'text-danger' : 'text-warning')}>{val.score}%</span>,
+              },
+              { header: 'Risk Status', cell: (val) => <StatusBadge status={val.riskLevel} /> },
+              { header: 'Last Inspection', cell: (val) => <span className="kd-num">{formatDate(val.lastInspection)}</span> },
             ]}
             data={[
               { id: '1', mineCode: 'WCL-04', score: 65, riskLevel: 'HIGH', lastInspection: '2026-09-18' },
@@ -304,28 +581,44 @@ function RegulatoryDashboard() {
               { id: '3', mineCode: 'ECL-03', score: 72, riskLevel: 'MEDIUM', lastInspection: '2026-09-12' },
             ]}
           />
-        </div>
+        </Card>
 
-        <div className="bg-surface-raised border border-border rounded-lg flex flex-col">
-          <div className="p-4 border-b border-border">
-            <h3 className="text-[13px] font-heading font-semibold text-text-secondary tracking-wider">RECENT REPORTS</h3>
-          </div>
-          <div className="divide-y divide-border overflow-y-auto max-h-[300px]">
-            <div className="p-4 hover:bg-mine-black/50 cursor-pointer" onClick={() => navigate('/reports')}>
-              <p className="text-[13px] font-medium text-text-primary">WCL-04 Monthly Compliance</p>
-              <p className="text-[11px] text-text-muted mt-1">Submitted: 2026-09-20</p>
-            </div>
-            <div className="p-4 hover:bg-mine-black/50 cursor-pointer" onClick={() => navigate('/reports')}>
-              <p className="text-[13px] font-medium text-text-primary">Q3 Inspection Summary - SECL</p>
-              <p className="text-[11px] text-text-muted mt-1">Submitted: 2026-09-15</p>
-            </div>
-            <div className="p-4 hover:bg-mine-black/50 cursor-pointer" onClick={() => navigate('/reports')}>
-              <p className="text-[13px] font-medium text-text-primary text-red-light">DGMS Annual Return (Pending)</p>
-              <p className="text-[11px] text-red-light/70 mt-1">Due: 2026-09-30</p>
-            </div>
-          </div>
-        </div>
+        <Card className="xl:col-span-4">
+          <CardHeader
+            title="Recent reports"
+            subtitle="Statutory submissions"
+            icon={<FileText />}
+            actions={
+              <Button variant="ghost" size="sm" onClick={() => navigate('/reports')}>
+                Reports <ArrowRight />
+              </Button>
+            }
+          />
+          <ul className="divide-y divide-border">
+            {reports.map((r) => (
+              <li key={r.title}>
+                <button type="button" onClick={() => navigate('/reports')} className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2">
+                  <span
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border',
+                      r.pending ? 'border-danger/25 bg-danger-soft text-danger' : 'border-border bg-inset text-text-muted'
+                    )}
+                  >
+                    <FileText className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium text-text-primary">{r.title}</span>
+                    <span className={cn('mt-0.5 block text-[12px] kd-num', r.pending ? 'font-medium text-danger' : 'text-text-muted')}>{r.meta}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-text-disabled group-hover:text-text-secondary" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </div>
+
+      <RecentInspectionsCard />
     </div>
   )
 }

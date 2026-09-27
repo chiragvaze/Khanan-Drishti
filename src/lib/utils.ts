@@ -30,8 +30,27 @@ export function daysUntil(date: string | Date): number {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+export type Tone = 'success' | 'warning' | 'danger'
+
+/** Compliance bands used across the product: ≥80 healthy, 60–79 attention, <60 critical. */
+export function complianceTone(value: number): Tone {
+  if (value >= 80) return 'success'
+  if (value >= 60) return 'warning'
+  return 'danger'
+}
+
+export const toneText: Record<Tone, string> = {
+  success: 'text-success',
+  warning: 'text-warning',
+  danger: 'text-danger',
+}
+
+export const toneFill: Record<Tone, string> = {
+  success: 'bg-success-solid',
+  warning: 'bg-warning-solid',
+  danger: 'bg-danger-solid',
+}
+
 export function percentageColor(value: number): string {
-  if (value >= 80) return 'text-green'
-  if (value >= 60) return 'text-amber'
-  return 'text-red'
+  return toneText[complianceTone(value)]
 }

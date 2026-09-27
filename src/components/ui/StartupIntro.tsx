@@ -71,13 +71,13 @@ export function StartupIntro() {
   return (
     <div
       className={cn(
-        'fixed inset-0 z-[9999] bg-[#0F1419] flex items-center justify-center',
+        'fixed inset-0 z-[9999] bg-brand-charcoal flex items-center justify-center',
         'transition-opacity duration-[800ms] ease-in-out',
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       )}
     >
       {reducedMotion ? (
-        <KhananLogo variant="full" size="lg" className="animate-pulse" />
+        <KhananLogo variant="full" size="lg" tone="onDark" className="animate-pulse" />
       ) : (
         <>
           {/* BACKGROUND LAYER: Visibly clear cinematic extension */}
@@ -132,7 +132,7 @@ export function StartupIntro() {
           {/* SKIP BUTTON */}
           <button
             onClick={completeIntro}
-            className="absolute bottom-6 right-6 text-amber/50 hover:text-amber text-xs tracking-[0.2em] uppercase font-mono transition-colors z-20 px-4 py-2"
+            className="absolute bottom-6 right-6 text-brand-amber/60 hover:text-brand-amber text-xs tracking-[0.2em] uppercase font-mono transition-colors z-20 px-4 py-2"
             aria-label="Skip intro"
           >
             Skip Intro &rarr;

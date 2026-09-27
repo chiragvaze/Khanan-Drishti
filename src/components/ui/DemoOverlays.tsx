@@ -1,125 +1,133 @@
+import { useEffect, useRef } from 'react'
 import { useDemo } from '../../contexts/DemoContext'
-import { Play, X, ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react'
+import { Play, X, ChevronRight, ChevronLeft, CheckCircle2, RotateCcw } from 'lucide-react'
 import KhananLogo from '../shared/KhananLogo'
+import { StatusBadge } from '../shared/StatusBadge'
+import { Button } from './Button'
+import { cn } from '../../lib/utils'
+
+// Labels for the 8 guided steps (routes are defined in DemoContext)
+const STEP_LABELS = ['Command Center', 'GIS Risk Map', 'Evidence', 'AI Insights', 'Compliance & Risk', 'CAPA', 'Contractors', 'Reports']
+
+const COMPLETED_ITEMS = [
+  'Evidence captured securely',
+  'AI verification processed',
+  'Compliance mapping established',
+  'Risk automatically identified',
+  'Corrective action (CAPA) initiated',
+  'Contractor safety record linked',
+  'Statutory report generated',
+]
 
 export function DemoOverlays() {
   const { isActive, currentStep, startDemo, exitDemo, nextStep } = useDemo()
+  const dialogRef = useRef<HTMLDivElement>(null)
 
-  // Only render if active and on step 0 (intro) or 9 (completion)
   if (!isActive) return null
   if (currentStep > 0 && currentStep < 9) {
-    // While in steps 1-8, render the global backdrop to dim the rest of the app
-    return <div className="fixed inset-0 bg-mine-black/60 backdrop-blur-[1px] pointer-events-none z-40 transition-all duration-500" />
+    // While in steps 1-8, dim the rest of the app so the spotlight reads clearly
+    return <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-40 bg-overlay/70 transition-opacity duration-300" />
   }
 
   const isCompletion = currentStep === 9
 
   return (
-    <div className="fixed inset-0 z-[100] bg-mine-black/95 backdrop-blur-md flex items-center justify-center animate-fade-in p-4">
-      <div className="max-w-xl w-full">
-        
-        {!isCompletion ? (
-          // Intro Overlay
-          <div className="bg-mine-black-light border border-border/50 rounded-lg shadow-2xl p-6 sm:p-8 relative overflow-hidden">
-            {/* Decorative background accent */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber/5 rounded-full blur-3xl pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
-            
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber/10 rounded-lg flex items-center justify-center border border-amber/20">
-                  <Play className="w-5 h-5 sm:w-6 sm:h-6 text-amber" />
-                </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-canvas/90 p-4 backdrop-blur-md animate-fade-in-backdrop">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="demo-title"
+        className="relative w-full max-w-[680px] overflow-hidden rounded-xl border border-border bg-surface-raised shadow-pop animate-pop-in"
+      >
+        <span aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-[3px]', isCompletion ? 'bg-success-solid' : 'bg-accent')} />
+
+        <div className="p-6 sm:p-8">
+          <div className="flex items-center justify-between gap-4">
+            <KhananLogo variant="lockup" size="sm" />
+            <span className="kd-overline">{isCompletion ? 'Demo complete' : 'Guided demo'}</span>
+          </div>
+
+          {!isCompletion ? (
+            <>
+              <h2 id="demo-title" className="mt-7 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-text-primary sm:text-[30px]">
+                From field evidence to governance
+              </h2>
+              <p className="mt-3 text-[14px] leading-6 text-text-secondary sm:text-[15px]">
+                Follow a real-time compliance scenario across the Khanan Drishti platform. You will track a high-risk ventilation
+                observation from the moment it is logged in the field, through AI verification, risk analysis, and final corrective
+                action mapping.
+              </p>
+
+              <div className="mt-6 flex items-center justify-between gap-3 rounded-lg border border-border bg-inset px-4 py-3">
                 <div>
-                  <KhananLogo variant="full" size="sm" className="h-[36px] sm:h-[44px]" />
-                  <p className="text-amber text-xs sm:text-sm font-medium tracking-wide uppercase mt-1">From Field Evidence to Governance</p>
-                </div>
-              </div>
-              
-              <div className="space-y-4 mb-6 sm:mb-8">
-                <p className="text-text-secondary leading-relaxed text-sm sm:text-base">
-                  Welcome to the interactive prototype demonstration.
-                </p>
-                <p className="text-text-secondary leading-relaxed text-sm sm:text-base">
-                  Follow a real-time compliance scenario across the Khanan Drishti platform. You will track a high-risk ventilation observation from the moment it is logged in the field, through AI verification, risk analysis, and final corrective action mapping.
-                </p>
-                
-                <div className="bg-mine-black p-3 sm:p-4 rounded border border-border/30 mt-4 sm:mt-6">
-                  <div className="text-xs text-text-muted mb-2 font-mono">SCENARIO TARGET</div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-text-primary font-medium text-sm">Mine WCL-04</span>
-                    <span className="px-2 py-0.5 bg-red-900/30 text-red-400 border border-red-900/50 rounded text-xs">HIGH RISK</span>
+                  <div className="kd-overline">Scenario target</div>
+                  <div className="mt-0.5 text-[14px] font-semibold text-text-primary">
+                    Mine <span className="font-mono">WCL-04</span>
                   </div>
                 </div>
+                <StatusBadge status="HIGH" size="md" />
               </div>
 
-              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-4 border-t border-border/30">
-                <button
-                  onClick={exitDemo}
-                  className="px-6 py-3 text-text-secondary hover:text-text-primary transition-colors flex items-center justify-center gap-2"
-                >
-                  <X className="w-5 h-5" /> Exit
-                </button>
-                <button
-                  onClick={nextStep}
-                  className="flex-1 bg-amber hover:bg-amber-600 text-mine-black font-semibold py-3 px-6 rounded transition-colors flex items-center justify-center gap-2"
-                >
-                  Start Demo <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          // Completion Overlay
-          <div className="bg-mine-black-light border border-border/50 rounded-lg shadow-2xl p-6 sm:p-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
-            
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500/10 rounded-lg flex items-center justify-center border border-green-500/20">
-                  <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
-                </div>
-                <div>
-                  <KhananLogo variant="full" size="sm" className="h-[36px] sm:h-[44px]" />
-                  <p className="text-green-500 text-xs sm:text-sm font-medium tracking-wide uppercase mt-1">From Field Evidence to Governance</p>
-                </div>
-              </div>
-              
-              <div className="space-y-3 mb-6 sm:mb-8">
-                <p className="text-text-primary mb-4 font-medium text-sm sm:text-base">Scenario complete. The system successfully tracked:</p>
-                
-                {[
-                  'Evidence captured securely',
-                  'AI verification processed',
-                  'Compliance mapping established',
-                  'Risk automatically identified',
-                  'Corrective action (CAPA) initiated',
-                  'Contractor safety record linked',
-                  'Statutory report generated'
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 text-text-secondary text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-green-500/70 flex-shrink-0" />
-                    <span>{item}</span>
-                  </div>
+              <ol className="mt-6 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4" aria-label="Demo steps">
+                {STEP_LABELS.map((label, i) => (
+                  <li key={label} className="flex items-center gap-2 text-[12px] text-text-secondary">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-inset text-[10px] font-semibold text-text-muted kd-num">
+                      {i + 1}
+                    </span>
+                    <span className="truncate">{label}</span>
+                  </li>
                 ))}
-              </div>
+              </ol>
 
-              <div className="flex flex-col sm:flex-row items-stretch gap-3 sm:gap-4 pt-4 border-t border-border/30">
-                <button
-                  onClick={startDemo}
-                  className="flex-1 bg-mine-black border border-border hover:border-text-muted text-text-primary font-medium py-3 px-6 rounded transition-colors"
-                >
-                  Restart Demo
-                </button>
-                <button
-                  onClick={exitDemo}
-                  className="flex-1 bg-amber hover:bg-amber-600 text-mine-black font-semibold py-3 px-6 rounded transition-colors"
-                >
-                  Exit Demo
-                </button>
+              <div className="mt-8 flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="hidden text-[12px] text-text-muted sm:block">
+                  Use <kbd className="rounded border border-border bg-inset px-1 font-mono text-[11px]">←</kbd>{' '}
+                  <kbd className="rounded border border-border bg-inset px-1 font-mono text-[11px]">→</kbd> to navigate,{' '}
+                  <kbd className="rounded border border-border bg-inset px-1 font-mono text-[11px]">Esc</kbd> to exit
+                </p>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                  <Button variant="ghost" size="lg" onClick={exitDemo}>
+                    Exit
+                  </Button>
+                  <Button variant="primary" size="lg" onClick={nextStep} data-autofocus autoFocus>
+                    <Play className="fill-current" /> Start demo
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </>
+          ) : (
+            <>
+              <div className="mt-7 flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-success/25 bg-success-soft">
+                  <CheckCircle2 className="h-5 w-5 text-success" />
+                </span>
+                <h2 id="demo-title" className="text-[24px] font-semibold leading-tight tracking-[-0.02em] text-text-primary sm:text-[28px]">
+                  Scenario complete
+                </h2>
+              </div>
+              <p className="mt-3 text-[14px] text-text-secondary">The system successfully tracked:</p>
+
+              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                {COMPLETED_ITEMS.map((item) => (
+                  <li key={item} className="flex items-center gap-2.5 rounded-md border border-border bg-inset px-3 py-2 text-[13px] text-text-primary">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-8 flex flex-col gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
+                <Button variant="secondary" size="lg" onClick={startDemo}>
+                  <RotateCcw /> Restart demo
+                </Button>
+                <Button variant="primary" size="lg" onClick={exitDemo} autoFocus>
+                  Exit demo
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -127,72 +135,80 @@ export function DemoOverlays() {
 
 export function DemoControlBar() {
   const { isActive, currentStep, nextStep, prevStep, exitDemo } = useDemo()
+  const barRef = useRef<HTMLDivElement>(null)
+  const visible = isActive && currentStep > 0 && currentStep < 9
 
-  if (!isActive || currentStep === 0 || currentStep === 9) return null
+  // Publish the bar height so fixed panels (side sheets) can keep content clear of it
+  useEffect(() => {
+    const el = barRef.current
+    if (!visible || !el) return
+    const root = document.documentElement
+    const update = () => root.style.setProperty('--kd-demo-bar-h', `${el.offsetHeight}px`)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      root.style.removeProperty('--kd-demo-bar-h')
+    }
+  }, [visible])
+
+  if (!visible) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] bg-mine-black border-t border-amber/20 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] animate-fade-in pb-safe">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-0 sm:h-16 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
-        
-        {/* Top row on mobile: Info */}
-        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-start">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-amber animate-pulse"></div>
-            <span className="text-text-primary font-bold tracking-widest text-xs sm:text-sm uppercase">DEMO</span>
-          </div>
-          <div className="h-4 w-px bg-border hidden sm:block"></div>
-          <span className="text-text-secondary font-mono text-xs sm:text-sm">WCL-04</span>
-          <div className="h-4 w-px bg-border hidden sm:block"></div>
-          <span className="text-text-muted text-xs sm:text-sm">Step {currentStep}/8</span>
+    <div
+      ref={barRef}
+      role="region"
+      aria-label="Demo controls"
+      className="fixed inset-x-0 bottom-0 z-[100] border-t border-border bg-surface-raised shadow-pop animate-fade-in pb-safe"
+    >
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-border">
+        <span className="block h-full bg-accent transition-all duration-300" style={{ width: `${(currentStep / 8) * 100}%` }} />
+      </span>
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-3 py-2.5 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-0">
+        {/* Context */}
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="inline-flex h-6 items-center gap-1.5 rounded-[5px] bg-amber-soft px-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-amber">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Demo
+          </span>
+          <span className="font-mono text-[12px] text-text-secondary">WCL-04</span>
+          <span className="h-4 w-px bg-border" aria-hidden="true" />
+          <span className="min-w-0 truncate text-[13px] text-text-primary" aria-live="polite">
+            <span className="text-text-muted kd-num">Step {currentStep}/8 · </span>
+            <span className="font-medium">{STEP_LABELS[currentStep - 1]}</span>
+          </span>
         </div>
 
-        {/* Center: Progress dots — hidden on very small */}
-        <div className="hidden md:flex items-center gap-2">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-            <div className="flex items-center" key={s}>
-              <div className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                s === currentStep ? 'bg-amber shadow-[0_0_8px_rgba(245,158,11,0.8)]' :
-                s < currentStep ? 'bg-amber/40' : 'bg-border'
-              }`} />
-              {s < 8 && (
-                <div className={`w-8 h-px mx-1 ${s < currentStep ? 'bg-amber/40' : 'bg-border/50'}`} />
-              )}
-            </div>
-          ))}
-        </div>
+        {/* Step dots */}
+        <ol className="hidden items-center gap-1.5 lg:flex" aria-hidden="true">
+          {STEP_LABELS.map((label, i) => {
+            const s = i + 1
+            return (
+              <li
+                key={label}
+                title={label}
+                className={cn(
+                  'h-1.5 rounded-full transition-all duration-200',
+                  s === currentStep ? 'w-6 bg-accent' : s < currentStep ? 'w-1.5 bg-amber/60' : 'w-1.5 bg-neutral-strong'
+                )}
+              />
+            )
+          })}
+        </ol>
 
-        {/* Bottom row on mobile: Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-          <button
-            onClick={prevStep}
-            disabled={currentStep === 1}
-            className="p-2 text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            title="Previous Step (Left Arrow)"
-            aria-label="Previous step"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          
-          <button
-            onClick={nextStep}
-            className="flex items-center gap-1 bg-amber/10 hover:bg-amber/20 text-amber border border-amber/20 hover:border-amber/40 px-4 py-2 sm:py-1.5 rounded text-sm font-medium transition-all min-h-[44px] sm:min-h-0"
-            title="Next Step (Right Arrow)"
-          >
-            {currentStep === 8 ? 'Finish' : 'Next'} <ChevronRight className="w-4 h-4" />
-          </button>
-          
-          <div className="h-6 w-px bg-border mx-1 sm:mx-2"></div>
-          
-          <button
-            onClick={exitDemo}
-            className="text-text-muted hover:text-text-primary text-sm font-medium transition-colors flex items-center gap-1 p-2 sm:p-0"
-            title="Exit Demo (Escape)"
-            aria-label="Exit demo"
-          >
-            <X className="w-4 h-4" /> <span className="hidden sm:inline">Exit</span>
-          </button>
+        {/* Controls */}
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
+          <Button variant="secondary" size="sm" onClick={prevStep} disabled={currentStep === 1} title="Previous step (←)" aria-label="Previous step" className="h-9 sm:h-8">
+            <ChevronLeft /> <span className="hidden sm:inline">Back</span>
+          </Button>
+          <Button variant="primary" size="sm" onClick={nextStep} title="Next step (→)" className="h-9 min-w-[96px] flex-1 sm:h-8 sm:flex-none">
+            {currentStep === 8 ? 'Finish' : 'Next'} <ChevronRight />
+          </Button>
+          <span className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
+          <Button variant="ghost" size="sm" onClick={exitDemo} title="Exit demo (Esc)" aria-label="Exit demo" className="h-9 sm:h-8">
+            <X /> <span className="hidden sm:inline">Exit</span>
+          </Button>
         </div>
-
       </div>
     </div>
   )

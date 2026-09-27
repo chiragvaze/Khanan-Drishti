@@ -1,6 +1,8 @@
-import React, { useEffect } from 'react'
+import React, { useId, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useDialog } from '../../lib/useDialog'
 
 export interface ModalProps {
   isOpen: boolean
@@ -9,89 +11,69 @@ export interface ModalProps {
   description?: string
   children: React.ReactNode
   footer?: React.ReactNode
+  size?: 'sm' | 'md' | 'lg'
   className?: string
 }
 
-export function Modal({
-  isOpen,
-  onClose,
-  title,
-  description,
-  children,
-  footer,
-  className,
-}: ModalProps) {
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
+const sizes = {
+  sm: 'sm:max-w-[440px]',
+  md: 'sm:max-w-[560px]',
+  lg: 'sm:max-w-[720px]',
+}
 
-  // Handle escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', handleEscape)
-    return () => window.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
+export function Modal({ isOpen, onClose, title, description, children, footer, size = 'md', className }: ModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const descId = useId()
+  useDialog(isOpen, onClose, panelRef)
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-        onClick={onClose} 
-      />
-      
-      <div 
-        className={cn(
-          "relative z-50 w-full max-w-[calc(100vw-24px)] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-mine-black p-4 sm:p-6 shadow-2xl transition-all",
-          "animate-in fade-in zoom-in-95 duration-200",
-          className
-        )}
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end justify-center p-3 sm:items-center sm:p-6">
+      <div className="absolute inset-0 bg-overlay backdrop-blur-[2px] animate-fade-in-backdrop" onClick={onClose} aria-hidden="true" />
+
+      <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descId : undefined}
+        tabIndex={-1}
+        className={cn(
+          'relative flex max-h-[calc(100dvh-24px)] w-full flex-col overflow-hidden rounded-xl border border-border bg-surface-raised shadow-pop animate-pop-in focus:outline-none sm:max-h-[85vh]',
+          sizes[size],
+          className
+        )}
       >
-        <button
-          onClick={onClose}
-          className="absolute right-3 top-3 sm:right-4 sm:top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 p-1"
-          aria-label="Close dialog"
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </button>
-
-        <div className="flex flex-col space-y-1.5 mb-5 text-left pr-8">
-          <h2 className="text-lg font-heading font-semibold leading-none tracking-tight text-text-primary">
-            {title}
-          </h2>
-          {description && (
-            <p className="text-sm text-text-secondary">
-              {description}
-            </p>
-          )}
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-[16px] font-semibold leading-6 text-text-primary">
+              {title}
+            </h2>
+            {description && (
+              <p id={descId} className="mt-0.5 text-[13px] text-text-secondary">
+                {description}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="-mr-1.5 -mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface-2 hover:text-text-primary"
+            aria-label="Close dialog"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="py-2">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
         {footer && (
-          <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6 gap-2 sm:gap-0">
-            {footer}
-          </div>
+          <div className="flex flex-col-reverse gap-2 border-t border-border bg-surface-2 px-5 py-3 sm:flex-row sm:justify-end">{footer}</div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

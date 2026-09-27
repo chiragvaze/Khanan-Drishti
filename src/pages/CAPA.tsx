@@ -1,8 +1,18 @@
 import { useState, useMemo, useEffect } from 'react'
-import { ClipboardCheck, Clock, AlertTriangle, CheckCircle, Search, ShieldAlert, User, Paperclip, Activity, X } from 'lucide-react'
-import { StatusBadge } from '../components/shared/StatusBadge'
+import {
+  ClipboardCheck, Clock, AlertTriangle, CheckCircle, ShieldAlert, User, Paperclip, Activity, Check,
+  PlayCircle, ArrowUpCircle, SearchX,
+} from 'lucide-react'
+import { StatusBadge, Tag } from '../components/shared/StatusBadge'
 import { KPICard } from '../components/shared/KPICard'
-import { cn } from '../lib/utils'
+import { PageHeader } from '../components/ui/PageHeader'
+import { Card } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { Tabs } from '../components/ui/Tabs'
+import { SearchInput } from '../components/ui/Field'
+import { EmptyState } from '../components/ui/States'
+import { SideSheet, SheetSection, DetailItem } from '../components/ui/SideSheet'
+import { cn, formatDate, formatDateTime } from '../lib/utils'
 import { useToast } from '../components/ui/ToastProvider'
 import { useDemo } from '../contexts/DemoContext'
 import DemoHighlight from '../components/shared/DemoHighlight'
@@ -164,7 +174,7 @@ export default function CAPAPage() {
 
   // SLA Countdown timer
   useEffect(() => {
-    const timer = setInterval(() => setCapas(c => [...c]), 1000) // Force re-render for countdown
+    const timer = setInterval(() => setCapas((c) => [...c]), 1000) // Force re-render for countdown
     return () => clearInterval(timer)
   }, [])
 
@@ -177,277 +187,229 @@ export default function CAPAPage() {
     }
   }, [demoActive, currentStep, selectedCapaId])
 
-  const openCount = capas.filter(c => c.status === 'OPEN').length
-  const escalatedCount = capas.filter(c => c.status === 'ESCALATED').length
-  const closedCount = capas.filter(c => c.status === 'CLOSED').length
-  const dueTodayCount = capas.filter(c => {
+  const openCount = capas.filter((c) => c.status === 'OPEN').length
+  const escalatedCount = capas.filter((c) => c.status === 'ESCALATED').length
+  const closedCount = capas.filter((c) => c.status === 'CLOSED').length
+  const dueTodayCount = capas.filter((c) => {
     const diff = c.due.getTime() - new Date().getTime()
     return c.status !== 'CLOSED' && diff > 0 && diff <= 24 * 3600 * 1000
   }).length
 
   const filteredCapas = useMemo(() => {
-    return capas.filter(c => {
-      const matchSearch = c.id.toLowerCase().includes(search.toLowerCase()) || 
-                          c.observation.toLowerCase().includes(search.toLowerCase()) ||
-                          c.mine.toLowerCase().includes(search.toLowerCase())
+    return capas.filter((c) => {
+      const matchSearch =
+        c.id.toLowerCase().includes(search.toLowerCase()) || c.observation.toLowerCase().includes(search.toLowerCase()) || c.mine.toLowerCase().includes(search.toLowerCase())
       const matchStatus = activeTab === 'ALL' || c.status === activeTab
       return matchSearch && matchStatus
     })
   }, [capas, search, activeTab])
 
-  const selectedCapa = capas.find(c => c.id === selectedCapaId)
+  const selectedCapa = capas.find((c) => c.id === selectedCapaId)
 
   // ------------------------------------------------------------------
   // Actions
   // ------------------------------------------------------------------
   const addActivity = (id: string, desc: string) => {
-    setCapas(prev => prev.map(c => {
-      if (c.id === id) {
-        return { ...c, activities: [{ timestamp: new Date().toISOString(), desc }, ...c.activities] }
-      }
-      return c
-    }))
+    setCapas((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          return { ...c, activities: [{ timestamp: new Date().toISOString(), desc }, ...c.activities] }
+        }
+        return c
+      })
+    )
   }
 
   const handleMarkInProgress = (id: string) => {
-    setCapas(prev => prev.map(c => {
-      if (c.id === id) {
-        const newTimeline = [...c.timeline]
-        newTimeline[3].completed = true // Corrective action started
-        return { ...c, status: 'IN_PROGRESS', timeline: newTimeline }
-      }
-      return c
-    }))
+    setCapas((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const newTimeline = [...c.timeline]
+          newTimeline[3].completed = true // Corrective action started
+          return { ...c, status: 'IN_PROGRESS', timeline: newTimeline }
+        }
+        return c
+      })
+    )
     addActivity(id, 'Marked IN PROGRESS. Corrective actions initiated.')
     toast({ title: 'CAPA marked in progress', type: 'success' })
   }
 
   const handleEscalate = (id: string) => {
-    setCapas(prev => prev.map(c => c.id === id ? { ...c, status: 'ESCALATED' } : c))
+    setCapas((prev) => prev.map((c) => (c.id === id ? { ...c, status: 'ESCALATED' } : c)))
     addActivity(id, 'ESCALATED to Mine Manager.')
     toast({ title: 'CAPA Escalated', type: 'warning' })
   }
 
   const handleRequestEvidence = (id: string) => {
-    setCapas(prev => prev.map(c => {
-      if (c.id === id) {
-        const newTimeline = [...c.timeline]
-        newTimeline[4].completed = true // Evidence requested
-        return { ...c, timeline: newTimeline }
-      }
-      return c
-    }))
+    setCapas((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const newTimeline = [...c.timeline]
+          newTimeline[4].completed = true // Evidence requested
+          return { ...c, timeline: newTimeline }
+        }
+        return c
+      })
+    )
     addActivity(id, 'Evidence request sent to owner.')
     toast({ title: 'Evidence requested', type: 'info' })
   }
 
   const handleClose = (id: string) => {
-    setCapas(prev => prev.map(c => {
-      if (c.id === id) {
-        const newTimeline = c.timeline.map(t => ({ ...t, completed: true }))
-        return { ...c, status: 'CLOSED', timeline: newTimeline }
-      }
-      return c
-    }))
+    setCapas((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const newTimeline = c.timeline.map((t) => ({ ...t, completed: true }))
+          return { ...c, status: 'CLOSED', timeline: newTimeline }
+        }
+        return c
+      })
+    )
     addActivity(id, 'CAPA CLOSED. Workflow complete.')
     toast({ title: 'CAPA Closed successfully', type: 'success' })
   }
 
+  const selectedCountdown = selectedCapa ? formatCountdown(selectedCapa.due, selectedCapa.status) : ''
+
   return (
-    <div className="relative h-[calc(100vh-140px)] flex flex-col space-y-4">
+    <div className="space-y-5">
+      <PageHeader title="CAPA Management" description="Corrective and preventive actions tracked against SLA, from observation to verified closure." />
+
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 flex-shrink-0">
-        <KPICard label="OPEN" value={openCount} subtitle="Requires action" icon={<AlertTriangle className="w-4 h-4" />} />
-        <KPICard label="ESCALATED" value={escalatedCount} subtitle="Management review" variant="danger" icon={<ShieldAlert className="w-4 h-4" />} />
-        <KPICard label="DUE TODAY" value={dueTodayCount} subtitle="SLA expiring" variant="warning" icon={<Clock className="w-4 h-4" />} />
-        <KPICard label="CLOSED" value={closedCount} subtitle="Verified resolution" variant="success" icon={<CheckCircle className="w-4 h-4" />} />
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+        <KPICard label="OPEN" value={openCount} subtitle="Requires action" icon={<AlertTriangle />} />
+        <KPICard label="ESCALATED" value={escalatedCount} subtitle="Management review" variant="danger" icon={<ShieldAlert />} />
+        <KPICard label="DUE TODAY" value={dueTodayCount} subtitle="SLA expiring" variant="warning" icon={<Clock />} />
+        <KPICard label="CLOSED" value={closedCount} subtitle="Verified resolution" variant="success" icon={<CheckCircle />} />
       </div>
 
-      <div className="flex-1 flex flex-col bg-surface-raised border border-border rounded overflow-hidden">
-        {/* Header & Tabs */}
-        <div className="bg-mine-black/40 border-b border-border px-4 pt-4 shrink-0 flex flex-col">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-            <h2 className="font-heading text-lg text-text-primary tracking-wide flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-amber" />
-              CAPA WORKSPACE
+      <Card className="overflow-hidden">
+        {/* Header, tabs & search */}
+        <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-[14px] font-semibold text-text-primary">
+              <ClipboardCheck className="h-4 w-4 text-text-muted" />
+              CAPA workspace
             </h2>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-              <input
-                type="text"
-                placeholder="Search CAPAs..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-mine-black border border-border rounded text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber/50"
-              />
-            </div>
+            <p className="text-[12px] text-text-muted">Select a CAPA to view its workflow, evidence and activity.</p>
           </div>
-          <div className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-hide">
-            {statusTabs.map(tab => {
-              const count = tab === 'ALL' ? capas.length : capas.filter(c => c.status === tab).length
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    "pb-3 text-[12px] font-medium tracking-wide transition-colors relative",
-                    activeTab === tab ? "text-amber" : "text-text-muted hover:text-text-secondary"
-                  )}
-                >
-                  {tab.replace('_', ' ')} ({count})
-                  {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-amber" />}
-                </button>
-              )
-            })}
-          </div>
+          <SearchInput value={search} onValueChange={setSearch} placeholder="Search CAPAs..." wrapperClassName="w-full sm:w-64" />
         </div>
+        <Tabs
+          aria-label="Filter by status"
+          className="mt-3 px-2"
+          value={activeTab}
+          onChange={setActiveTab}
+          items={statusTabs.map((tab) => ({
+            value: tab,
+            label: tab === 'ALL' ? 'All' : tab.replace('_', ' ').toLowerCase().replace(/^\w/, (ch) => ch.toUpperCase()),
+            count: tab === 'ALL' ? capas.length : capas.filter((c) => c.status === tab).length,
+          }))}
+        />
 
         {/* Main Table */}
-        <div className="flex-1 overflow-auto">
-          <div className="min-w-[700px]">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-mine-black/95 backdrop-blur z-10">
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">CAPA ID</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Observation</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Mine</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Risk</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Owner</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">SLA Left</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Created</th>
+        <div className="kd-table-wrap">
+          <table className="kd-table min-w-[820px] whitespace-nowrap">
+            <thead>
+              <tr>
+                <th scope="col">CAPA ID</th>
+                <th scope="col">Observation</th>
+                <th scope="col">Mine</th>
+                <th scope="col">Risk</th>
+                <th scope="col">Owner</th>
+                <th scope="col">SLA Left</th>
+                <th scope="col">Status</th>
+                <th scope="col">Created</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50">
+            <tbody>
               {filteredCapas.map((c) => {
                 const timeLeft = formatCountdown(c.due, c.status)
                 const isOverdue = timeLeft === 'OVERDUE'
                 return (
-                  <tr 
-                    key={c.id} 
+                  <tr
+                    key={c.id}
+                    data-clickable="true"
+                    data-selected={selectedCapaId === c.id}
+                    tabIndex={0}
                     onClick={() => setSelectedCapaId(c.id)}
-                    className="hover:bg-mine-black cursor-pointer transition-colors group"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setSelectedCapaId(c.id)
+                    }}
                   >
-                    <td className="px-4 py-3 text-[12px] font-mono text-amber font-medium">{c.id}</td>
-                    <td className="px-4 py-3 text-[12px] text-text-primary font-medium">{c.observation}</td>
-                    <td className="px-4 py-3 text-[12px] text-text-secondary">{c.mine}</td>
-                    <td className="px-4 py-3"><StatusBadge status={c.risk as any} /></td>
-                    <td className="px-4 py-3 text-[12px] text-text-secondary">{c.owner}</td>
-                    <td className="px-4 py-3">
-                      <span className={cn("text-[12px] font-mono font-bold", isOverdue ? "text-red" : c.status === 'CLOSED' ? "text-green" : "text-amber")}>
-                        {timeLeft}
-                      </span>
+                    <td className="font-mono text-[12px] font-medium text-amber">{c.id}</td>
+                    <td className="font-medium text-text-primary">{c.observation}</td>
+                    <td className="font-mono text-[12px]">{c.mine}</td>
+                    <td>
+                      <StatusBadge status={c.risk} />
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-bold tracking-wider",
-                        c.status === 'OPEN' ? "bg-amber-dim text-amber border border-amber/20" :
-                        c.status === 'CLOSED' ? "bg-green-dim text-green border border-green/20" :
-                        c.status === 'ESCALATED' ? "bg-red-dim text-red border border-red/20" :
-                        "bg-blue-900/30 text-blue-400 border border-blue-500/20"
-                      )}>
-                        {c.status.replace('_', ' ')}
-                      </span>
+                    <td>{c.owner}</td>
+                    <td>
+                      <SlaCell value={timeLeft} overdue={isOverdue} closed={c.status === 'CLOSED'} />
                     </td>
-                    <td className="px-4 py-3 text-[12px] text-text-secondary font-mono">
-                      {new Date(c.created).toLocaleDateString()}
+                    <td>
+                      <StatusBadge status={c.status} hideDot />
                     </td>
+                    <td className="kd-num">{formatDate(c.created)}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-          </div>
-          {filteredCapas.length === 0 && (
-            <div className="p-10 text-center text-text-muted">No CAPAs match the selected filters.</div>
-          )}
+          {filteredCapas.length === 0 && <EmptyState compact icon={SearchX} title="No CAPAs match the selected filters." description="Try another status tab or search term." />}
         </div>
-      </div>
+      </Card>
 
-      {/* Drawer Overlay */}
-      {selectedCapa && (
-        <div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity"
-          onClick={() => setSelectedCapaId(null)}
-        />
-      )}
-
-      {/* Right Drawer */}
-      <div 
-        className={cn(
-          "fixed inset-y-0 right-0 w-full sm:w-[600px] bg-surface-raised border-l border-border shadow-2xl transform transition-transform duration-300 z-50 flex flex-col",
-          selectedCapa ? "translate-x-0" : "translate-x-full"
-        )}
+      {/* Detail sheet */}
+      <SideSheet
+        open={!!selectedCapa}
+        onClose={() => setSelectedCapaId(null)}
+        closeOnEscape={!demoActive}
+        eyebrow="CAPA detail"
+        title={selectedCapa?.observation}
+        badges={selectedCapa && <StatusBadge status={selectedCapa.status} hideDot />}
+        subtitle={
+          selectedCapa && (
+            <span className="font-mono">
+              {selectedCapa.id} • {selectedCapa.mine}
+            </span>
+          )
+        }
       >
         {selectedCapa && (
-          <>
-            <div className="flex items-center justify-between p-5 border-b border-border bg-mine-black/50 shrink-0">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="font-heading text-xl text-text-primary tracking-wide">CAPA DETAIL</h2>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-[11px] font-bold tracking-wider",
-                    selectedCapa.status === 'OPEN' ? "bg-amber-dim text-amber border border-amber/20" :
-                    selectedCapa.status === 'CLOSED' ? "bg-green-dim text-green border border-green/20" :
-                    selectedCapa.status === 'ESCALATED' ? "bg-red-dim text-red border border-red/20" :
-                    "bg-blue-900/30 text-blue-400 border border-blue-500/20"
-                  )}>
-                    {selectedCapa.status.replace('_', ' ')}
+          <DemoHighlight step={6} tooltip="The Corrective & Preventive Action (CAPA) is tracked against a strict SLA timer to ensure accountability.">
+            <div className="space-y-6 p-5">
+              {/* Meta Details */}
+              <dl className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-surface p-4">
+                <DetailItem label="Risk" icon={<ShieldAlert />}>
+                  <StatusBadge status={selectedCapa.risk} />
+                </DetailItem>
+                <DetailItem label="Owner" icon={<User />}>
+                  <span className="font-medium">{selectedCapa.owner}</span>
+                </DetailItem>
+                <DetailItem label="SLA Term" icon={<Clock />}>
+                  <span className="kd-num">{selectedCapa.slaHours} hours</span>
+                </DetailItem>
+                <DetailItem label="Active SLA" icon={<Activity />}>
+                  <span
+                    className={cn(
+                      'font-mono text-[18px] font-semibold kd-num',
+                      selectedCountdown === 'OVERDUE' ? 'text-danger' : selectedCapa.status === 'CLOSED' ? 'text-success' : 'text-warning'
+                    )}
+                  >
+                    {selectedCountdown}
                   </span>
-                </div>
-                <p className="text-[12px] font-mono text-text-muted mt-1">{selectedCapa.id} • {selectedCapa.mine}</p>
-              </div>
-              <button 
-                onClick={() => setSelectedCapaId(null)}
-                className="p-2 hover:bg-mine-black rounded transition-colors text-text-muted hover:text-text-primary"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+                </DetailItem>
+              </dl>
 
-            <DemoHighlight step={6} tooltip="The Corrective & Preventive Action (CAPA) is tracked against a strict SLA timer to ensure accountability.">
-              <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                
-                {/* Meta Details */}
-              <div className="bg-mine-black border border-border rounded-lg p-5">
-                <h3 className="text-[16px] font-semibold text-text-primary mb-4">{selectedCapa.observation}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5"><ShieldAlert className="w-3.5 h-3.5"/> Risk</p>
-                    <StatusBadge status={selectedCapa.risk as any} />
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5"><User className="w-3.5 h-3.5"/> Owner</p>
-                    <p className="text-[13px] text-text-primary font-medium">{selectedCapa.owner}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> SLA Term</p>
-                    <p className="text-[13px] text-text-primary font-mono">{selectedCapa.slaHours} hours</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5"/> Active SLA</p>
-                    <p className={cn(
-                      "text-[16px] font-mono font-bold",
-                      formatCountdown(selectedCapa.due, selectedCapa.status) === 'OVERDUE' ? "text-red" : 
-                      selectedCapa.status === 'CLOSED' ? "text-green" : "text-amber"
-                    )}>
-                      {formatCountdown(selectedCapa.due, selectedCapa.status)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Workflow Flowchart (Detection -> Action -> Follow-up -> Closure) */}
-              <div>
-                <h4 className="font-heading text-[13px] font-semibold text-text-secondary tracking-widest mb-3">WORKFLOW PROGRESS</h4>
-                <div className="flex justify-between items-center bg-surface border border-border rounded p-4 relative">
-                  {/* Progress Line */}
-                  <div className="absolute top-1/2 left-8 right-8 h-0.5 bg-border -translate-y-1/2 z-0" />
-                  
-                  {['DETECTION', 'ACTION', 'FOLLOW-UP', 'CLOSURE'].map((step, idx) => {
+              {/* Workflow (Detection -> Action -> Follow-up -> Closure) */}
+              <SheetSection title="Workflow progress">
+                <ol className="flex items-start rounded-lg border border-border bg-surface px-3 py-4">
+                  {['DETECTION', 'ACTION', 'FOLLOW-UP', 'CLOSURE'].map((step, idx, arr) => {
                     let isActive = false
                     let isDone = false
-                    
+
                     if (selectedCapa.status === 'CLOSED') {
                       isDone = true
                     } else if (selectedCapa.status === 'OPEN' && idx === 0) {
@@ -461,134 +423,117 @@ export default function CAPAPage() {
                     }
 
                     return (
-                      <div key={step} className="relative z-10 flex flex-col items-center gap-2 bg-surface px-2">
-                        <div className={cn(
-                          "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors",
-                          isDone ? "bg-green border-green text-white" :
-                          isActive ? "bg-mine-black border-amber text-amber" :
-                          "bg-mine-black border-border text-border"
-                        )}>
-                          {isDone ? <CheckCircle className="w-3.5 h-3.5" /> : <span className="text-[10px] font-bold">{idx + 1}</span>}
-                        </div>
-                        <span className={cn(
-                          "text-[10px] font-bold tracking-wider",
-                          isDone ? "text-green" : isActive ? "text-amber" : "text-text-muted"
-                        )}>
+                      <li key={step} className="relative flex flex-1 flex-col items-center gap-2">
+                        {idx < arr.length - 1 && (
+                          <span aria-hidden="true" className={cn('absolute left-1/2 top-3 h-0.5 w-full', isDone ? 'bg-success-solid' : 'bg-border')} />
+                        )}
+                        <span
+                          className={cn(
+                            'relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors',
+                            isDone ? 'border-success-solid bg-success-solid text-white' : isActive ? 'border-accent bg-surface text-amber' : 'border-border bg-surface text-text-muted'
+                          )}
+                        >
+                          {isDone ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : <span className="text-[10px] font-semibold kd-num">{idx + 1}</span>}
+                        </span>
+                        <span className={cn('text-center text-[10px] font-semibold tracking-[0.06em]', isDone ? 'text-success' : isActive ? 'text-amber' : 'text-text-muted')}>
                           {step}
                         </span>
-                      </div>
+                      </li>
                     )
                   })}
-                </div>
-              </div>
+                </ol>
+              </SheetSection>
 
               {/* Actions Box */}
               {selectedCapa.status !== 'CLOSED' && (
-                <div className="bg-amber-dim/20 border border-amber/20 rounded p-4">
-                  <h4 className="font-heading text-[12px] font-semibold text-amber tracking-widest mb-3">AVAILABLE ACTIONS</h4>
+                <SheetSection title="Available actions">
                   <div className="flex flex-wrap gap-2">
                     {selectedCapa.status === 'OPEN' && (
-                      <button 
-                        onClick={() => handleMarkInProgress(selectedCapa.id)}
-                        className="px-3 py-1.5 bg-mine-black border border-border hover:border-amber text-text-primary text-[12px] rounded transition-colors"
-                      >
-                        Mark In Progress
-                      </button>
+                      <Button variant="secondary" size="sm" onClick={() => handleMarkInProgress(selectedCapa.id)}>
+                        <PlayCircle /> Mark In Progress
+                      </Button>
                     )}
                     {(selectedCapa.status === 'OPEN' || selectedCapa.status === 'IN_PROGRESS') && (
-                      <button 
-                        onClick={() => handleEscalate(selectedCapa.id)}
-                        className="px-3 py-1.5 bg-mine-black border border-border hover:border-red hover:text-red text-text-primary text-[12px] rounded transition-colors"
-                      >
-                        Escalate
-                      </button>
+                      <Button variant="danger-outline" size="sm" onClick={() => handleEscalate(selectedCapa.id)}>
+                        <ArrowUpCircle /> Escalate
+                      </Button>
                     )}
-                    <button 
-                      onClick={() => handleRequestEvidence(selectedCapa.id)}
-                      className="px-3 py-1.5 bg-mine-black border border-border hover:border-blue-400 text-text-primary text-[12px] rounded transition-colors"
-                    >
-                      Request Evidence
-                    </button>
-                    <button 
-                      onClick={() => handleClose(selectedCapa.id)}
-                      className="px-3 py-1.5 bg-green-dim border border-green hover:bg-green text-white text-[12px] font-semibold rounded transition-colors ml-auto"
-                    >
-                      Close CAPA
-                    </button>
+                    <Button variant="secondary" size="sm" onClick={() => handleRequestEvidence(selectedCapa.id)}>
+                      <Paperclip /> Request Evidence
+                    </Button>
+                    <Button variant="success" size="sm" onClick={() => handleClose(selectedCapa.id)} className="sm:ml-auto">
+                      <CheckCircle /> Close CAPA
+                    </Button>
                   </div>
-                </div>
+                </SheetSection>
               )}
 
-              {/* Timeline List */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-heading text-[13px] font-semibold text-text-secondary tracking-widest mb-3">TIMELINE</h4>
-                  <div className="space-y-3">
+              {/* Timeline + Evidence */}
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <SheetSection title="Timeline">
+                  <ul className="space-y-2.5">
                     {selectedCapa.timeline.map((step) => (
-                      <div key={step.id} className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
-                          step.completed ? "bg-green/20 border-green text-green" : "border-border text-transparent"
-                        )}>
-                          <CheckCircle className="w-3 h-3" />
-                        </div>
-                        <span className={cn("text-[12px]", step.completed ? "text-text-primary" : "text-text-muted")}>
-                          {step.label}
+                      <li key={step.id} className="flex items-center gap-2.5">
+                        <span
+                          className={cn(
+                            'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+                            step.completed ? 'border-success-solid bg-success-solid text-white' : 'border-border-strong text-transparent'
+                          )}
+                        >
+                          <Check className="h-2.5 w-2.5" strokeWidth={3} />
                         </span>
-                      </div>
+                        <span className={cn('text-[13px]', step.completed ? 'text-text-primary' : 'text-text-muted')}>{step.label}</span>
+                      </li>
                     ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-heading text-[13px] font-semibold text-text-secondary tracking-widest mb-3">EVIDENCE</h4>
+                  </ul>
+                </SheetSection>
+
+                <SheetSection title="Evidence">
                   {selectedCapa.evidence.length === 0 ? (
-                    <div className="text-[12px] text-text-muted italic border border-dashed border-border/50 rounded p-4 text-center">
-                      No evidence uploaded yet.
-                    </div>
+                    <div className="rounded-md border border-dashed border-border-strong px-4 py-5 text-center text-[12px] text-text-muted">No evidence uploaded yet.</div>
                   ) : (
-                    <div className="space-y-2">
-                      {selectedCapa.evidence.map((ev, idx) => (
-                        <div key={idx} className="flex items-center gap-2 p-2 border border-border rounded bg-mine-black">
-                          <Paperclip className="w-4 h-4 text-text-muted" />
-                          <span className="text-[12px] text-text-primary flex-1 truncate">{ev.name}</span>
-                          <span className="text-[10px] bg-surface px-1.5 py-0.5 rounded text-text-muted">{ev.type}</span>
-                        </div>
+                    <ul className="space-y-2">
+                      {selectedCapa.evidence.map((ev) => (
+                        <li key={ev.name} className="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2">
+                          <Paperclip className="h-4 w-4 shrink-0 text-text-muted" />
+                          <span className="flex-1 truncate text-[12px] text-text-primary">{ev.name}</span>
+                          <Tag>{ev.type}</Tag>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   )}
-                </div>
+                </SheetSection>
               </div>
 
               {/* Activity Log */}
-              <div>
-                <h4 className="font-heading text-[13px] font-semibold text-text-secondary tracking-widest mb-3">ACTIVITY LOG</h4>
-                <div className="bg-mine-black border border-border rounded p-4 space-y-4 max-h-[200px] overflow-y-auto">
+              <SheetSection title="Activity log">
+                <ol className="max-h-[220px] space-y-0 overflow-y-auto rounded-lg border border-border bg-surface p-4">
                   {selectedCapa.activities.map((act, idx) => (
-                    <div key={idx} className="flex gap-4">
-                      <div className="w-16 flex-shrink-0 text-[10px] text-text-muted font-mono pt-1 text-right">
-                        {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <li key={`${act.timestamp}-${idx}`} className="relative flex gap-3 pb-4 last:pb-0">
+                      {idx !== selectedCapa.activities.length - 1 && <span aria-hidden="true" className="absolute left-[5px] top-4 h-full w-px bg-border" />}
+                      <span className="relative z-10 mt-1 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-accent bg-surface" aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] text-text-primary">{act.desc}</p>
+                        <p className="mt-0.5 text-[11px] text-text-muted kd-num">{formatDateTime(act.timestamp)}</p>
                       </div>
-                      <div className="relative pb-6 flex-1">
-                        {idx !== selectedCapa.activities.length - 1 && (
-                          <div className="absolute top-4 left-[5px] bottom-0 w-px bg-border z-0" />
-                        )}
-                        <div className="absolute top-1.5 left-0 w-3 h-3 rounded-full bg-mine-black border border-amber z-10" />
-                        <div className="pl-6 text-[12px] text-text-secondary">
-                          {act.desc}
-                        </div>
-                      </div>
-                    </div>
+                    </li>
                   ))}
-                </div>
-              </div>
-
-              </div>
-            </DemoHighlight>
-          </>
+                </ol>
+              </SheetSection>
+            </div>
+          </DemoHighlight>
         )}
-      </div>
-
+      </SideSheet>
     </div>
+  )
+}
+
+function SlaCell({ value, overdue, closed }: { value: string; overdue: boolean; closed: boolean }) {
+  if (overdue) return <StatusBadge status="OVERDUE" />
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 font-mono text-[12px] font-semibold kd-num', closed ? 'text-success' : 'text-warning')}>
+      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+      {value}
+    </span>
   )
 }

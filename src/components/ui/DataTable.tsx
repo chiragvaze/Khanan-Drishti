@@ -1,11 +1,14 @@
 import React from 'react'
 import { cn } from '../../lib/utils'
+import { EmptyState, LoadingState } from './States'
 
 export interface Column<T> {
   header: string
   accessorKey?: keyof T
   cell?: (item: T) => React.ReactNode
   className?: string
+  /** Right-align and use tabular figures. */
+  numeric?: boolean
 }
 
 export interface DataTableProps<T> {
@@ -15,6 +18,7 @@ export interface DataTableProps<T> {
   emptyMessage?: string
   className?: string
   onRowClick?: (item: T) => void
+  getRowKey?: (item: T, index: number) => React.Key
 }
 
 export function DataTable<T>({
@@ -24,45 +28,46 @@ export function DataTable<T>({
   emptyMessage = 'No data available',
   className,
   onRowClick,
+  getRowKey,
 }: DataTableProps<T>) {
+  if (isLoading) return <LoadingState message="Loading data…" />
+
   return (
-    <div className={cn('w-full overflow-auto border border-border rounded-md bg-mine-black', className)}>
-      <table className="w-full text-left text-sm text-text-primary">
-        <thead className="bg-surface border-b border-border text-text-secondary font-medium">
+    <div className={cn('kd-table-wrap', className)}>
+      <table className="kd-table">
+        <thead>
           <tr>
             {columns.map((col, i) => (
-              <th key={i} className={cn('px-4 py-3 align-middle font-medium', col.className)}>
+              <th key={i} scope="col" className={cn(col.numeric && 'kd-cell-num', col.className)}>
                 {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
-          {isLoading ? (
+        <tbody>
+          {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-8 text-center text-text-muted">
-                <div className="flex justify-center items-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-amber border-t-transparent animate-spin" />
-                  Loading data...
-                </div>
-              </td>
-            </tr>
-          ) : data.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} className="px-4 py-8 text-center text-text-muted">
-                {emptyMessage}
+              <td colSpan={columns.length}>
+                <EmptyState compact title="Nothing to show" description={emptyMessage} />
               </td>
             </tr>
           ) : (
             data.map((row, rowIndex) => (
-              <tr 
-                key={rowIndex} 
-                className={cn('hover:bg-surface-raised transition-colors group', onRowClick && 'cursor-pointer')}
-                onClick={() => onRowClick && onRowClick(row)}
+              <tr
+                key={getRowKey ? getRowKey(row, rowIndex) : rowIndex}
+                data-clickable={onRowClick ? 'true' : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                onClick={() => onRowClick?.(row)}
+                onKeyDown={(e) => {
+                  if (onRowClick && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault()
+                    onRowClick(row)
+                  }
+                }}
               >
                 {columns.map((col, colIndex) => (
-                  <td key={colIndex} className={cn('px-4 py-3 align-middle', col.className)}>
-                    {col.cell ? col.cell(row) : (row as any)[col.accessorKey as string]}
+                  <td key={colIndex} className={cn(col.numeric && 'kd-cell-num', col.className)}>
+                    {col.cell ? col.cell(row) : String((row as Record<string, unknown>)[col.accessorKey as string] ?? '')}
                   </td>
                 ))}
               </tr>
