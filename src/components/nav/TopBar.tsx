@@ -126,12 +126,14 @@ export default function TopBar({ isMobile, onMenuToggle }: TopBarProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Close overlays on route change
-  useEffect(() => {
+  // Close overlays on route change (state adjusted during render, per React guidance)
+  const [lastPath, setLastPath] = useState(location.pathname)
+  if (lastPath !== location.pathname) {
+    setLastPath(location.pathname)
     setShowSearch(false)
     setShowNotifications(false)
     setShowRoleMenu(false)
-  }, [location.pathname])
+  }
 
   return (
     <>

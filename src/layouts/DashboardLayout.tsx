@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { Suspense, useCallback, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from '../components/nav/Sidebar'
 import TopBar from '../components/nav/TopBar'
@@ -7,6 +7,7 @@ import { DemoProvider, useDemo } from '../contexts/DemoContext'
 import { DemoOverlays, DemoControlBar } from '../components/ui/DemoOverlays'
 import { useIsMobile } from '../lib/useIsMobile'
 import { cn } from '../lib/utils'
+import { Skeleton } from '../components/ui/States'
 
 // Routes that manage their own full-height, edge-to-edge layout
 const FULL_BLEED_ROUTES = ['/map']
@@ -57,13 +58,18 @@ function Shell() {
             demoBarVisible && !fullBleed && 'pb-28 sm:pb-16'
           )}
         >
-          {fullBleed ? (
-            <Outlet />
-          ) : (
-            <div key={location.pathname} className={cn('mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6', !demoActive && 'animate-page-in')}>
+          {/* Stable boundary for lazily loaded routes. Router navigations run in a transition,
+              so the current page stays visible while a route chunk loads; the fallback only
+              appears on a direct first load of a lazy route. */}
+          <Suspense fallback={<RouteFallback fullBleed={fullBleed} />}>
+            {fullBleed ? (
               <Outlet />
-            </div>
-          )}
+            ) : (
+              <div key={location.pathname} className={cn('mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6', !demoActive && 'animate-page-in')}>
+                <Outlet />
+              </div>
+            )}
+          </Suspense>
         </main>
 
         {/* Environment status bar */}
@@ -79,6 +85,36 @@ function Shell() {
           <span className="shrink-0 text-text-muted md:hidden">SIH 2026</span>
         </footer>
       </div>
+    </div>
+  )
+}
+
+/** Layout-shaped placeholder shown while a lazily loaded route chunk downloads. */
+function RouteFallback({ fullBleed }: { fullBleed: boolean }) {
+  if (fullBleed) {
+    return (
+      <div role="status" aria-label="Loading map" className="flex h-full flex-col lg:flex-row">
+        <div className="kd-skeleton h-[46dvh] rounded-none lg:h-full lg:flex-1" />
+        <div className="flex-1 space-y-3 border-border bg-surface p-4 lg:w-[360px] lg:flex-none lg:border-l">
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-3 w-2/3" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div role="status" aria-label="Loading page" className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+      <Skeleton className="h-7 w-64" />
+      <Skeleton className="h-4 w-96 max-w-full" />
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 rounded-lg" />
+        ))}
+      </div>
+      <Skeleton className="h-80 rounded-lg" />
     </div>
   )
 }

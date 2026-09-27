@@ -1,29 +1,28 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '../../lib/utils'
 import KhananLogo from '../shared/KhananLogo'
 
 export function StartupIntro() {
-  const [isVisible, setIsVisible] = useState(true)
+  // Read once on mount: skipping or reduced motion must be known before the first paint
+  const [shouldSkip] = useState(() => new URLSearchParams(window.location.search).get('skipIntro') === 'true')
+  const [reducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const [isVisible, setIsVisible] = useState(!shouldSkip)
   const [isFadingOut, setIsFadingOut] = useState(false)
-  const [reducedMotion, setReducedMotion] = useState(false)
   const [isLogoFrame, setIsLogoFrame] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
+  const completeIntro = useCallback(() => {
+    setIsFadingOut(true)
+    setTimeout(() => {
+      setIsVisible(false)
+      document.body.style.overflow = ''
+    }, 800) // 800ms fade duration
+  }, [])
+
   useEffect(() => {
-    // Check if we should skip
-    const urlParams = new URLSearchParams(window.location.search)
-    const shouldSkip = urlParams.get('skipIntro') === 'true'
     // Temporarily disable the sessionStorage check so it plays on every refresh for testing
     // const hasPlayed = sessionStorage.getItem('khanan_intro_played') === 'true'
-
-    // Check reduced motion
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    setReducedMotion(prefersReducedMotion)
-
-    if (shouldSkip) {
-      setIsVisible(false)
-      return
-    }
+    if (shouldSkip) return
 
     // Set flag so it doesn't play again this session
     sessionStorage.setItem('khanan_intro_played', 'true')
@@ -31,7 +30,7 @@ export function StartupIntro() {
     // Prevent body scroll while visible
     document.body.style.overflow = 'hidden'
 
-    if (prefersReducedMotion) {
+    if (reducedMotion) {
       // Reduced motion fallback: show static logo, then fade
       const timer = setTimeout(() => {
         completeIntro()
@@ -45,15 +44,7 @@ export function StartupIntro() {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [])
-
-  const completeIntro = () => {
-    setIsFadingOut(true)
-    setTimeout(() => {
-      setIsVisible(false)
-      document.body.style.overflow = ''
-    }, 800) // 800ms fade duration
-  }
+  }, [shouldSkip, reducedMotion, completeIntro])
 
   const handleVideoEnded = () => {
     completeIntro()

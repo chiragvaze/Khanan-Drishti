@@ -3,7 +3,6 @@ import DashboardLayout from './layouts/DashboardLayout'
 import CommandCenter from './pages/CommandCenter'
 import Mines from './pages/Mines'
 import MineDetail from './pages/MineDetail'
-import GISRiskMap from './pages/GISRiskMap'
 import ComplianceRisk from './pages/ComplianceRisk'
 import CAPAPage from './pages/CAPA'
 import Contractors from './pages/Contractors'
@@ -12,6 +11,8 @@ import EvidencePage from './pages/Evidence'
 import AIInsightsPage from './pages/AIInsights'
 import Reports from './pages/Reports'
 import SettingsPage from './pages/Settings'
+// Lazily loaded (heavy MapLibre dependency); <Suspense> boundary lives in DashboardLayout
+import GISRiskMap from './pages/GISRiskMap.lazy'
 
 export const router = createBrowserRouter([
   {

@@ -18,8 +18,12 @@ export default function DemoHighlight({ step, tooltip, children }: DemoHighlight
   useEffect(() => {
     if (!isHighlighted) return
     const t = window.setTimeout(() => {
+      const el = ref.current
+      if (!el) return
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      ref.current?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' })
+      // Tall spotlights (e.g. a whole detail panel on a phone) align to their top so they read from the start
+      const tall = el.offsetHeight > window.innerHeight * 0.6
+      el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: reduce ? 'auto' : 'smooth' })
     }, 350)
     return () => window.clearTimeout(t)
   }, [isHighlighted])

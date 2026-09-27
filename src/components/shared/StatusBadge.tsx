@@ -71,10 +71,6 @@ const statusConfig: Record<string, { tone: BadgeTone; label?: string }> = {
   INFO: { tone: 'info' },
 }
 
-export function statusTone(status: string): BadgeTone {
-  return statusConfig[status]?.tone ?? 'neutral'
-}
-
 export function StatusBadge({ status, size = 'sm', hideDot = false, className }: StatusBadgeProps) {
   const config = statusConfig[status] || { tone: 'neutral' as BadgeTone }
   const label = config.label || status.replace(/_/g, ' ')

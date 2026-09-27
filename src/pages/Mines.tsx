@@ -188,7 +188,7 @@ export default function Mines() {
         </div>
 
         <div className="kd-table-wrap lg:max-h-[calc(100dvh-220px)]">
-          <table className="kd-table kd-table--compact whitespace-nowrap">
+          <table className="kd-table kd-table--compact kd-table--sticky-first whitespace-nowrap">
             <thead>
               <tr>
                 {columns.map((col) => {
@@ -199,10 +199,11 @@ export default function Mines() {
                       key={col.key}
                       scope="col"
                       aria-sort={sorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                      className={cn(col.numeric && 'kd-cell-num')}
+                      // Multi-word labels may wrap onto two lines, but only when the table is short of space
+                      className={cn('whitespace-normal', col.numeric && 'kd-cell-num')}
                     >
-                      <button type="button" onClick={() => toggleSort(col.key)} className={cn('kd-th-button', sorted && 'text-text-primary')}>
-                        {col.label}
+                      <button type="button" onClick={() => toggleSort(col.key)} className={cn('kd-th-button text-left', sorted && 'text-text-primary')}>
+                        <span>{col.label}</span>
                         <SortIcon className={cn('h-3 w-3', sorted ? 'text-amber' : 'opacity-50')} aria-hidden="true" />
                       </button>
                     </th>
@@ -226,7 +227,7 @@ export default function Mines() {
                     aria-label={`${mine.code} ${mine.name}`}
                     className="group"
                   >
-                    <td className="min-w-[180px] whitespace-normal">
+                    <td className="min-w-[160px] whitespace-normal">
                       <div className="flex max-w-[220px] flex-col">
                         <span className="text-[13px] font-medium leading-5 text-text-primary group-hover:text-amber">{mine.name}</span>
                         <span className="font-mono text-[11px] text-amber">{mine.code}</span>
@@ -244,7 +245,8 @@ export default function Mines() {
                     </td>
                     <td>
                       <div className="flex items-center gap-2.5">
-                        <div className="h-1.5 w-12 overflow-hidden rounded-full bg-chart-track">
+                        {/* Mini bar is supplementary; below 1440px the coloured percentage carries the value */}
+                        <div className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-chart-track min-[1440px]:block">
                           <div className={cn('h-full rounded-full', toneFill[tone])} style={{ width: `${mine.complianceScore}%` }} />
                         </div>
                         <span className={cn('w-9 text-[13px] font-semibold kd-num', toneText[tone])}>{mine.complianceScore}%</span>
