@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom'
+import { Suspense, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   Factory,
@@ -24,7 +25,7 @@ import { KPICard } from '../components/shared/KPICard'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button, buttonVariants } from '../components/ui/Button'
-import { Card, CardHeader, CardContent } from '../components/ui/Card'
+import { Card, CardHeader, CardContent, CardFooter } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { useToast } from '../components/ui/ToastProvider'
 import { mines } from '../data/mines'
@@ -34,7 +35,9 @@ import { inspections } from '../data/inspections'
 import type { Inspection } from '../data/types'
 import { useRole } from '../contexts/RoleContext'
 import DemoHighlight from '../components/shared/DemoHighlight'
-import { axisProps, chartColors, gridProps, tooltipCursor } from '../lib/chart'
+import MineMapPreview from '../components/map/MineMapPreview.lazy'
+import { useInView } from '../lib/useInView'
+import { axisProps, chartColors, gridProps, riskColor, tooltipCursor } from '../lib/chart'
 import { cn, complianceTone, formatDate, formatDateTime, toneFill, toneText } from '../lib/utils'
 
 // Data mocks
@@ -107,9 +110,9 @@ function CorporateDashboard() {
         <KPICard label="Compliance Rate" value={`${avgCompliance}%`} subtitle="Network average" icon={<ShieldAlert />} trend="up" trendValue="+1.2% from Aug" trendPositive variant="success" />
       </div>
 
-      {/* Row 2 — risk overview + compliance trend */}
+      {/* Row 2 — network risk overview + geographic network map */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <Card className="xl:col-span-8">
+        <Card className="xl:col-span-7">
           <CardHeader
             title="Network risk overview"
             subtitle="Risk distribution and mines requiring attention"
@@ -182,37 +185,12 @@ function CorporateDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col xl:col-span-4">
-          <CardHeader title="Compliance trend" subtitle="Network average · last 6 months" />
-          <CardContent className="flex flex-1 flex-col">
-            <div className="flex items-baseline gap-2">
-              <span className="text-[24px] font-semibold text-text-primary kd-num">{complianceTrend[complianceTrend.length - 1].score}%</span>
-              <span className="text-[12px] text-text-muted">September</span>
-            </div>
-            <div className="mt-2 min-h-[160px] flex-1">
-              <ResponsiveContainer width="100%" height="100%" minHeight={160}>
-                <AreaChart data={complianceTrend} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="kd-trend-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={chartColors.accent} stopOpacity={0.22} />
-                      <stop offset="100%" stopColor={chartColors.accent} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid {...gridProps} />
-                  <XAxis dataKey="month" {...axisProps} />
-                  <YAxis domain={[60, 100]} ticks={[60, 70, 80, 90, 100]} {...axisProps} />
-                  <Tooltip cursor={{ stroke: chartColors.grid }} formatter={(v) => [`${v}%`, 'Compliance']} />
-                  <Area type="monotone" dataKey="score" stroke={chartColors.accent} strokeWidth={2} fill="url(#kd-trend-fill)" dot={{ r: 3, fill: chartColors.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <MineNetworkMapCard className="xl:col-span-5" />
       </div>
 
-      {/* Row 3 — AI alerts + CAPA / priority actions */}
+      {/* Row 3 — AI alerts + compliance trend + CAPA / priority actions */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <Card className="xl:col-span-7">
+        <Card className="xl:col-span-5">
           <CardHeader
             title={
               <span className="flex items-center gap-2">
@@ -254,7 +232,34 @@ function CorporateDashboard() {
           </ul>
         </Card>
 
-        <Card className="flex flex-col xl:col-span-5">
+        <Card className="flex flex-col xl:col-span-3">
+          <CardHeader title="Compliance trend" subtitle="Network average · last 6 months" />
+          <CardContent className="flex flex-1 flex-col">
+            <div className="flex items-baseline gap-2">
+              <span className="text-[24px] font-semibold text-text-primary kd-num">{complianceTrend[complianceTrend.length - 1].score}%</span>
+              <span className="text-[12px] text-text-muted">September</span>
+            </div>
+            <div className="mt-2 min-h-[160px] flex-1">
+              <ResponsiveContainer width="100%" height="100%" minHeight={160}>
+                <AreaChart data={complianceTrend} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="kd-trend-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartColors.accent} stopOpacity={0.22} />
+                      <stop offset="100%" stopColor={chartColors.accent} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid {...gridProps} />
+                  <XAxis dataKey="month" {...axisProps} />
+                  <YAxis domain={[60, 100]} ticks={[60, 70, 80, 90, 100]} {...axisProps} />
+                  <Tooltip cursor={{ stroke: chartColors.grid }} formatter={(v) => [`${v}%`, 'Compliance']} />
+                  <Area type="monotone" dataKey="score" stroke={chartColors.accent} strokeWidth={2} fill="url(#kd-trend-fill)" dot={{ r: 3, fill: chartColors.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col xl:col-span-4">
           <CardHeader
             title="CAPA status"
             subtitle="Corrective actions across all mines"
@@ -357,6 +362,57 @@ function CorporateDashboard() {
         </Card>
       </div>
     </div>
+  )
+}
+
+/** Executive map preview — same mines, markers and risk colours as the GIS Risk Map; the whole card opens it. */
+function MineNetworkMapCard({ className }: { className?: string }) {
+  const mapAreaRef = useRef<HTMLDivElement>(null)
+  // Mount the (lazily loaded) map only once it approaches the viewport
+  const inView = useInView(mapAreaRef, '200px')
+  const counts = (['HIGH', 'MEDIUM', 'LOW'] as const).map((level) => ({ level, count: mines.filter((m) => m.riskLevel === level).length }))
+  const legendLabel = { HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' } as const
+
+  return (
+    <Card className={cn('group relative flex flex-col overflow-hidden transition-colors hover:border-amber/50 has-[a:focus-visible]:border-amber', className)}>
+      <CardHeader title="Mine network map" subtitle="Geographic overview of monitored mines" icon={<MapIcon />} />
+
+      <div ref={mapAreaRef} className="relative min-h-[280px] flex-1 bg-inset">
+        {inView ? (
+          <Suspense fallback={<div className="kd-skeleton absolute inset-0 rounded-none" />}>
+            <MineMapPreview mines={mines} />
+          </Suspense>
+        ) : (
+          <div className="kd-skeleton absolute inset-0 rounded-none" />
+        )}
+
+        {/* Legend — same risk colours as the GIS map */}
+        <ul
+          aria-label="Mines by risk level"
+          className="pointer-events-none absolute left-3 top-3 z-[1] flex items-center gap-3 rounded-md border border-border bg-surface-raised/95 px-2.5 py-1.5 text-[11px] shadow-card backdrop-blur"
+        >
+          {counts.map(({ level, count }) => (
+            <li key={level} className="flex items-center gap-1.5 text-text-secondary">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: riskColor[level] }} aria-hidden="true" />
+              {legendLabel[level]}
+              <span className="font-semibold text-text-primary kd-num">{count}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <CardFooter className="justify-between">
+        <span className="text-[12px] text-text-muted kd-num">{mines.length} monitored sites</span>
+        {/* Stretched link: its ::after covers the whole card, making the card one accessible target */}
+        <Link
+          to="/map"
+          className="inline-flex items-center gap-1.5 rounded text-[13px] font-semibold text-amber after:absolute after:inset-0 after:z-[2] after:rounded-lg focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-[-2px] focus-visible:after:outline-focus"
+        >
+          Open GIS Map<span className="sr-only"> — GIS Risk Map</span>
+          <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+        </Link>
+      </CardFooter>
+    </Card>
   )
 }
 

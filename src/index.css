@@ -432,6 +432,35 @@ html.theme-transition *::after {
 /* On small screens the page's own toolbar occupies the top edge */
 .kd-map-compact .maplibregl-ctrl-top-right { top: 48px; }
 
+/* Mine risk markers (DOM markers created by components/map/mineMap.ts).
+   A slow, restrained "breathing" halo signals live monitoring. Only box-shadow is
+   animated — MapLibre positions markers with `transform`, which must stay untouched. */
+.kd-mine-marker {
+  --kd-marker-drop: 0 2px 6px rgb(0 0 0 / 0.35);
+  --kd-halo-rest: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background-color: var(--kd-marker);
+  border: 2px solid var(--color-surface);
+  cursor: pointer;
+  box-shadow: 0 0 0 var(--kd-halo-rest) color-mix(in oklab, var(--kd-marker) var(--kd-halo-rest-alpha), transparent), var(--kd-marker-drop);
+  animation: kd-marker-pulse var(--kd-pulse-duration) ease-in-out infinite;
+  transition: width 150ms ease, height 150ms ease, opacity 200ms ease;
+}
+.kd-mine-marker[data-risk='HIGH'] { --kd-halo-rest-alpha: 24%; --kd-pulse-spread: 8px; --kd-pulse-alpha: 30%; --kd-pulse-duration: 2s; }
+.kd-mine-marker[data-risk='MEDIUM'] { --kd-halo-rest-alpha: 22%; --kd-pulse-spread: 7px; --kd-pulse-alpha: 26%; --kd-pulse-duration: 2.2s; }
+.kd-mine-marker[data-risk='LOW'] { --kd-halo-rest-alpha: 18%; --kd-pulse-spread: 5px; --kd-pulse-alpha: 20%; --kd-pulse-duration: 2.5s; }
+
+@keyframes kd-marker-pulse {
+  0%, 100% { box-shadow: 0 0 0 var(--kd-halo-rest) color-mix(in oklab, var(--kd-marker) var(--kd-halo-rest-alpha), transparent), var(--kd-marker-drop); }
+  50% { box-shadow: 0 0 0 var(--kd-pulse-spread) color-mix(in oklab, var(--kd-marker) var(--kd-pulse-alpha), transparent), var(--kd-marker-drop); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kd-mine-marker { animation: none; }
+}
+
 /* Map popup content (built with DOM in GISRiskMap) */
 .kd-map-popup { min-width: 210px; font-family: var(--font-body); }
 .kd-map-popup__code { font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: var(--color-text-primary); }

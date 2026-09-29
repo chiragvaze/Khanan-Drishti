@@ -15,17 +15,9 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
-function readSavedTheme(): Theme | null {
-  try {
-    const saved = localStorage.getItem(THEME_STORAGE_KEY)
-    return saved === 'light' || saved === 'dark' ? saved : null
-  } catch {
-    return null
-  }
-}
-
+// The index.html bootstrap has already resolved the theme (saved choice, else light)
 function readDocumentTheme(): Theme {
-  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -59,19 +51,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   )
 
   const toggleTheme = useCallback(() => setTheme(theme === 'dark' ? 'light' : 'dark'), [theme, setTheme])
-
-  // Follow OS changes until the user makes an explicit choice
-  useEffect(() => {
-    const mql = window.matchMedia('(prefers-color-scheme: light)')
-    const onChange = (e: MediaQueryListEvent) => {
-      if (readSavedTheme()) return
-      const next: Theme = e.matches ? 'light' : 'dark'
-      applyTheme(next, true)
-      setThemeState(next)
-    }
-    mql.addEventListener('change', onChange)
-    return () => mql.removeEventListener('change', onChange)
-  }, [applyTheme])
 
   // Keep multiple open tabs in sync
   useEffect(() => {

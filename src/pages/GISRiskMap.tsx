@@ -10,10 +10,9 @@ import { SearchInput, Select } from '../components/ui/Field'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/States'
 import { useIsMobile } from '../lib/useIsMobile'
+import { createMineMap, createMineMarkerElement, INDIA_VIEW, riskLabel, riskVar } from '../components/map/mineMap'
 
 const riskSeverity = { HIGH: 3, MEDIUM: 2, LOW: 1 }
-const riskVar = { HIGH: 'var(--color-danger-solid)', MEDIUM: 'var(--color-warning-solid)', LOW: 'var(--color-success-solid)' } as const
-const riskLabel = { HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' } as const
 
 type MineItem = (typeof mines)[number]
 
@@ -64,7 +63,7 @@ export default function GISRiskMap() {
   const activeFilterCount = [riskFilter, subsidiaryFilter, typeFilter].filter((f) => f !== 'ALL').length
 
   const resetView = () => {
-    map.current?.flyTo({ center: [82.5, 22.5], zoom: 5 })
+    map.current?.flyTo({ center: INDIA_VIEW.center, zoom: INDIA_VIEW.zoom })
     setSearch('')
     setRiskFilter('ALL')
     setSubsidiaryFilter('ALL')
@@ -81,31 +80,7 @@ export default function GISRiskMap() {
   useEffect(() => {
     if (!mapContainer.current || map.current) return
 
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: {
-        version: 8,
-        sources: {
-          osm: {
-            type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            tileSize: 256,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          },
-        },
-        layers: [
-          {
-            id: 'osm-layer',
-            type: 'raster',
-            source: 'osm',
-            minzoom: 0,
-            maxzoom: 19,
-          },
-        ],
-      },
-      center: [82.5, 22.5],
-      zoom: 5,
-    })
+    map.current = createMineMap(mapContainer.current)
 
     map.current.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
 
@@ -130,24 +105,12 @@ export default function GISRiskMap() {
     markers.current.forEach(({ marker }) => marker.remove())
     markers.current.clear()
 
-    filteredMines.forEach((mine) => {
+    filteredMines.forEach((mine, index) => {
       const color = riskVar[mine.riskLevel]
       const openCapaCount = estimatedOpenCapa(mine)
 
-      const el = document.createElement('div')
-      el.className = 'mine-marker'
-      el.setAttribute('role', 'button')
-      el.setAttribute('aria-label', `${mine.code} — ${riskLabel[mine.riskLevel]} risk`)
-      Object.assign(el.style, {
-        width: '16px',
-        height: '16px',
-        borderRadius: '50%',
-        backgroundColor: color,
-        border: '2px solid var(--color-surface)',
-        cursor: 'pointer',
-        boxShadow: `0 0 0 4px color-mix(in oklab, ${color} 28%, transparent), 0 2px 6px rgb(0 0 0 / 0.35)`,
-        transition: 'width 150ms ease, height 150ms ease',
-      })
+      // Shared risk marker (appearance + subtle pulse defined in index.css)
+      const el = createMineMarkerElement(mine, index)
 
       // Popup content — themed via .kd-map-popup classes in index.css
       const popupNode = document.createElement('div')

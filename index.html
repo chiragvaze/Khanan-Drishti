@@ -1,23 +1,23 @@
 <!doctype html>
-<html lang="en" data-theme="dark" style="color-scheme: dark">
+<html lang="en" data-theme="light" style="color-scheme: light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo/ony_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Khanan Drishti — AI-based Smart Governance & Compliance Monitoring System for Indian Coal Mines" />
-    <meta name="theme-color" content="#0B1015" />
+    <meta name="theme-color" content="#F4F6F8" />
     <title>Khanan Drishti — Coal Mine Governance Dashboard</title>
     <!--
       Theme bootstrap: runs before any CSS/JS so the first paint already uses the
-      saved (or system) theme. Keep in sync with src/contexts/ThemeContext.tsx.
+      right theme. A saved choice always wins; first-time visitors get light.
+      Keep in sync with src/contexts/ThemeContext.tsx.
     -->
     <script>
       (function () {
-        var theme = 'dark'
+        var theme = 'light'
         try {
           var saved = localStorage.getItem('khanan-theme')
           if (saved === 'light' || saved === 'dark') theme = saved
-          else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) theme = 'light'
         } catch (e) {}
         var root = document.documentElement
         root.setAttribute('data-theme', theme)
@@ -27,8 +27,8 @@
       })()
     </script>
     <style>
-      html { background: #0B1015; }
-      html[data-theme='light'] { background: #F4F6F8; }
+      html { background: #F4F6F8; }
+      html[data-theme='dark'] { background: #0B1015; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
