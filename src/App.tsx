@@ -5,7 +5,6 @@ import GISRiskMap from './pages/GISRiskMap.lazy'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 
-import { StartupIntro } from './components/ui/StartupIntro'
 
 /** Warm the deferred GIS chunk once the browser is idle so opening the map stays instant. */
 function prefetchDeferredRoutes() {
@@ -19,7 +18,6 @@ export default function App() {
 
   return (
     <>
-      <StartupIntro />
       <RouterProvider router={router} />
       <Analytics />
       <SpeedInsights />
